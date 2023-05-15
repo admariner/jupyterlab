@@ -2,21 +2,12 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { CommandLinker } from '@jupyterlab/apputils';
-
 import { DocumentRegistry } from '@jupyterlab/docregistry';
-
 import { ServiceManager } from '@jupyterlab/services';
-
 import { ContextMenuSvg } from '@jupyterlab/ui-components';
-
-import { IIterator } from '@lumino/algorithm';
-
 import { Application, IPlugin } from '@lumino/application';
-
 import { Token } from '@lumino/coreutils';
-
 import { ISignal, Signal } from '@lumino/signaling';
-
 import { Widget } from '@lumino/widgets';
 
 /**
@@ -58,7 +49,9 @@ export abstract class JupyterFrontEnd<
     // render context menu/submenus with inline svg icon tweaks
     this.contextMenu = new ContextMenuSvg({
       commands: this.commands,
-      renderer: options.contextMenuRenderer
+      renderer: options.contextMenuRenderer,
+      groupByTarget: false,
+      sortBySelector: false
     });
 
     // The default restored promise if one does not exist in the options.
@@ -115,7 +108,7 @@ export abstract class JupyterFrontEnd<
   /**
    * The service manager used by the application.
    */
-  readonly serviceManager: ServiceManager;
+  readonly serviceManager: ServiceManager.IManager;
 
   /**
    * The application form factor, e.g., `desktop` or `mobile`.
@@ -140,7 +133,7 @@ export abstract class JupyterFrontEnd<
 
   /**
    * Walks up the DOM hierarchy of the target of the active `contextmenu`
-   * event, testing each HTMLElement ancestor for a user-supplied funcion. This can
+   * event, testing each HTMLElement ancestor for a user-supplied function. This can
    * be used to find an HTMLElement on which to operate, given a context menu click.
    *
    * @param fn - a function that takes an `HTMLElement` and returns a
@@ -237,7 +230,7 @@ export namespace JupyterFrontEnd {
     /**
      * The service manager used by the application.
      */
-    serviceManager?: ServiceManager;
+    serviceManager?: ServiceManager.IManager;
 
     /**
      * Promise that resolves when state is first restored, returning layout
@@ -288,7 +281,7 @@ export namespace JupyterFrontEnd {
      *
      * @param area - Optional regions in the shell whose widgets are iterated.
      */
-    widgets(area?: string): IIterator<Widget>;
+    widgets(area?: string): IterableIterator<Widget>;
   }
 
   /**
@@ -297,7 +290,7 @@ export namespace JupyterFrontEnd {
    * @param path - Full URL of JupyterLab
    * @param paths - The current IPaths object hydrated from PageConfig.
    */
-  export function inDocMode(path: string, paths: IPaths) {
+  export function inDocMode(path: string, paths: IPaths): boolean {
     const docPattern = new RegExp(`^${paths.urls.doc}`);
     const match = path.match(docPattern);
     if (match) {
@@ -310,7 +303,12 @@ export namespace JupyterFrontEnd {
   /**
    * The application paths dictionary token.
    */
-  export const IPaths = new Token<IPaths>('@jupyterlab/application:IPaths');
+  export const IPaths = new Token<IPaths>(
+    '@jupyterlab/application:IPaths',
+    `A service providing information about various
+  URLs and server paths for the current application. Use this service if you want to
+  assemble URLs to use the JupyterLab REST API.`
+  );
 
   /**
    * An interface for URL and directory paths used by a Jupyter front-end.
@@ -345,7 +343,7 @@ export namespace JupyterFrontEnd {
      *
      * Examples of appropriate use include displaying a help dialog for a user
      * listing the paths, or a tooltip in a filebrowser displaying the server
-     * root. Examples of inapproriate use include using one of these paths in a
+     * root. Examples of inappropriate use include using one of these paths in a
      * terminal command, generating code using these paths, or using one of
      * these paths in a request to the server (it would be better to write a
      * server extension to handle these cases).
@@ -371,7 +369,8 @@ export namespace JupyterFrontEnd {
    * dependency if it is possible to make it an optional dependency.
    */
   export const ITreeResolver = new Token<ITreeResolver>(
-    '@jupyterlab/application:ITreeResolver'
+    '@jupyterlab/application:ITreeResolver',
+    'A service to resolve the tree path.'
   );
 
   /**

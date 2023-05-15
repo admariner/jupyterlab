@@ -1,28 +1,24 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { Message, MessageLoop } from '@lumino/messaging';
-
-import { Widget } from '@lumino/widgets';
-
 import { SessionContext } from '@jupyterlab/apputils';
-
-import { CodeConsole } from '../src';
-
+import { createSessionContext } from '@jupyterlab/apputils/lib/testutils';
 import {
   CodeCell,
   CodeCellModel,
-  RawCellModel,
-  RawCell
+  RawCell,
+  RawCellModel
 } from '@jupyterlab/cells';
-
-import { createSessionContext, NBTestUtils } from '@jupyterlab/testutils';
-
+import { createStandaloneCell, YCodeCell } from '@jupyter/ydoc';
+import { NBTestUtils } from '@jupyterlab/cells/lib/testutils';
+import { CodeConsole } from '@jupyterlab/console';
+import { Message, MessageLoop } from '@lumino/messaging';
+import { Widget } from '@lumino/widgets';
 import {
   createConsoleFactory,
-  rendermime,
+  editorFactory,
   mimeTypeService,
-  editorFactory
+  rendermime
 } from './utils';
 
 class TestConsole extends CodeConsole {
@@ -148,7 +144,7 @@ describe('console/widget', () => {
     describe('#addCell()', () => {
       it('should add a code cell to the content widget', () => {
         const contentFactory = NBTestUtils.createCodeCellFactory();
-        const model = new CodeCellModel({});
+        const model = new CodeCellModel();
         const cell = new CodeCell({
           model,
           contentFactory,
@@ -170,7 +166,7 @@ describe('console/widget', () => {
         expect(widget.cells.length).toBeGreaterThan(0);
         widget.clear();
         expect(widget.cells.length).toBe(0);
-        expect(widget.promptCell!.model.value.text).toBe('');
+        expect(widget.promptCell!.model.sharedModel.getSource()).toBe('');
       });
     });
 
@@ -205,7 +201,7 @@ describe('console/widget', () => {
         const force = false;
         const timeout = 9000;
         Widget.attach(widget, document.body);
-        widget.promptCell!.model.value.text = 'for x in range(5):';
+        widget.promptCell!.model.sharedModel.setSource('for x in range(5):');
         expect(widget.cells.length).toBe(0);
         const session = widget.sessionContext as SessionContext;
         session.kernelPreference = { name: 'ipython' };
@@ -230,16 +226,16 @@ describe('console/widget', () => {
         Widget.attach(widget, document.body);
 
         const model = widget.promptCell!.model;
-        expect(model.value.text).toHaveLength(0);
+        expect(model.sharedModel.getSource()).toHaveLength(0);
         widget.insertLinebreak();
-        expect(model.value.text).toBe('\n');
+        expect(model.sharedModel.getSource()).toBe('\n');
       });
     });
 
     describe('#serialize()', () => {
       it('should serialize the contents of a console', () => {
         Widget.attach(widget, document.body);
-        widget.promptCell!.model.value.text = 'foo';
+        widget.promptCell!.model.sharedModel.setSource('foo');
 
         const serialized = widget.serialize();
         expect(serialized).toHaveLength(1);
@@ -297,7 +293,7 @@ describe('console/widget', () => {
         expect(widget.methods).toEqual(
           expect.arrayContaining(['onActivateRequest'])
         );
-        expect(widget.promptCell!.editor.hasFocus()).toBe(true);
+        expect(widget.promptCell!.editor!.hasFocus()).toBe(true);
       });
     });
 
@@ -325,7 +321,7 @@ describe('console/widget', () => {
 
       describe('#createCodeCell', () => {
         it('should create a code cell', () => {
-          const model = new CodeCellModel({});
+          const model = new CodeCellModel();
           const prompt = contentFactory.createCodeCell({
             rendermime: widget.rendermime,
             model,
@@ -337,7 +333,7 @@ describe('console/widget', () => {
 
       describe('#createRawCell', () => {
         it('should create a foreign cell', () => {
-          const model = new RawCellModel({});
+          const model = new RawCellModel();
           const prompt = contentFactory.createRawCell({
             model,
             contentFactory
@@ -375,7 +371,13 @@ describe('console/widget', () => {
       describe('#createCodeCell()', () => {
         it('should create a code cell', () => {
           const factory = new CodeConsole.ModelFactory({});
-          expect(factory.createCodeCell({})).toBeInstanceOf(CodeCellModel);
+          expect(
+            factory.createCodeCell({
+              sharedModel: createStandaloneCell({
+                cell_type: 'code'
+              }) as YCodeCell
+            })
+          ).toBeInstanceOf(CodeCellModel);
         });
       });
 

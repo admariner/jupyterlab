@@ -3,14 +3,26 @@
   "extends": "./tsconfigbase",
   "exclude": [
     "**/test/**",
-    "**/testutils/**"
+    "**/testutils/**",
+    "packages/testing/**"
   ],
   "compilerOptions": {
+    "strictNullChecks": false,
     "paths": {
       "@jupyterlab/*": [
         "./packages/*/src"
       ]
-    }
+    },
+    "lib": [
+      "DOM",
+      "DOM.iterable",
+      "es2019.array"
+    ],
+    "moduleResolution": "node",
+    "types": [
+      "jest",
+      "node"
+    ]
   },
   "references": [
     {
@@ -26,10 +38,13 @@
       "path": "./packages/attachments"
     },
     {
-      "path": "./packages/cells"
+      "path": "./packages/cell-toolbar"
     },
     {
-      "path": "./packages/celltags"
+      "path": "./packages/cell-toolbar-extension"
+    },
+    {
+      "path": "./packages/cells"
     },
     {
       "path": "./packages/celltags-extension"
@@ -75,12 +90,6 @@
     },
     {
       "path": "./packages/docmanager-extension"
-    },
-    {
-      "path": "./packages/docprovider"
-    },
-    {
-      "path": "./packages/docprovider-extension"
     },
     {
       "path": "./packages/docregistry"
@@ -152,6 +161,12 @@
       "path": "./packages/logconsole-extension"
     },
     {
+      "path": "./packages/lsp"
+    },
+    {
+      "path": "./packages/lsp-extension"
+    },
+    {
       "path": "./packages/mainmenu"
     },
     {
@@ -164,10 +179,16 @@
       "path": "./packages/markdownviewer-extension"
     },
     {
-      "path": "./packages/mathjax2"
+      "path": "./packages/markedparser-extension"
     },
     {
-      "path": "./packages/mathjax2-extension"
+      "path": "./packages/mathjax-extension"
+    },
+    {
+      "path": "./packages/metadataform"
+    },
+    {
+      "path": "./packages/metadataform-extension"
     },
     {
       "path": "./packages/nbformat"
@@ -218,9 +239,6 @@
       "path": "./packages/settingregistry"
     },
     {
-      "path": "./packages/shared-models"
-    },
-    {
       "path": "./packages/shortcuts-extension"
     },
     {
@@ -267,12 +285,6 @@
     },
     {
       "path": "./packages/ui-components-extension"
-    },
-    {
-      "path": "./packages/vdom"
-    },
-    {
-      "path": "./packages/vdom-extension"
     },
     {
       "path": "./packages/vega5-extension"

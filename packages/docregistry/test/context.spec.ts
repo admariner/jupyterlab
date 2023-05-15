@@ -1,37 +1,30 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { UUID } from '@lumino/coreutils';
-
-import { Contents, ServiceManager } from '@jupyterlab/services';
-
-import { Widget } from '@lumino/widgets';
-
+import { SessionContext } from '@jupyterlab/apputils';
 import {
   Context,
   DocumentRegistry,
   TextModelFactory
 } from '@jupyterlab/docregistry';
-
 import { RenderMimeRegistry } from '@jupyterlab/rendermime';
-
+import { Contents, ServiceManager } from '@jupyterlab/services';
 import {
-  waitForDialog,
   acceptDialog,
   dismissDialog,
-  initNotebookContext,
-  NBTestUtils
-} from '@jupyterlab/testutils';
-import { SessionContext } from '@jupyterlab/apputils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
+  signalToPromise,
+  waitForDialog
+} from '@jupyterlab/testing';
+import { ServiceManagerMock } from '@jupyterlab/services/lib/testutils';
+import { UUID } from '@lumino/coreutils';
+import { Widget } from '@lumino/widgets';
 
 describe('docregistry/context', () => {
   let manager: ServiceManager.IManager;
   const factory = new TextModelFactory();
 
   beforeAll(() => {
-    manager = new Mock.ServiceManagerMock();
+    manager = new ServiceManagerMock();
     return manager.ready;
   });
 
@@ -97,7 +90,9 @@ describe('docregistry/context', () => {
         let checked = false;
         context.saveState.connect((sender, args) => {
           if (!called) {
+            // eslint-disable-next-line jest/no-conditional-expect
             expect(sender).toBe(context);
+            // eslint-disable-next-line jest/no-conditional-expect
             expect(args).toBe('started');
 
             checked = true;
@@ -116,7 +111,9 @@ describe('docregistry/context', () => {
         let checked = false;
         context.saveState.connect((sender, args) => {
           if (called > 0) {
+            // eslint-disable-next-line jest/no-conditional-expect
             expect(sender).toBe(context);
+            // eslint-disable-next-line jest/no-conditional-expect
             expect(args).toBe('completed');
             checked = true;
           }
@@ -140,6 +137,7 @@ describe('docregistry/context', () => {
         let checked;
         context.saveState.connect((sender, args) => {
           if (called > 0) {
+            // eslint-disable-next-line jest/no-conditional-expect
             expect(sender).toBe(context);
             checked = args;
           }
@@ -147,7 +145,7 @@ describe('docregistry/context', () => {
           called += 1;
         });
 
-        await expect(context.initialize(true)).rejects.toThrowError(
+        await expect(context.initialize(true)).rejects.toThrow(
           'Invalid response: 403 Forbidden'
         );
         expect(called).toBe(2);
@@ -173,7 +171,7 @@ describe('docregistry/context', () => {
     describe('#ready()', () => {
       it('should resolve when the file is saved for the first time', async () => {
         await context.initialize(true);
-        await context.ready;
+        await expect(context.ready).resolves.not.toThrow();
       });
 
       it('should resolve when the file is reverted for the first time', async () => {
@@ -183,30 +181,7 @@ describe('docregistry/context', () => {
           content: 'foo'
         });
         await context.initialize(false);
-        await context.ready;
-      });
-
-      it('should initialize the model when the file is saved for the first time', async () => {
-        const context = await initNotebookContext({ manager });
-        context.model.fromJSON(NBTestUtils.DEFAULT_CONTENT);
-        expect(context.model.cells.canUndo).toBe(true);
-        await context.initialize(true);
-        await context.ready;
-        expect(context.model.cells.canUndo).toBe(false);
-      });
-
-      it('should initialize the model when the file is reverted for the first time', async () => {
-        const context = await initNotebookContext({ manager });
-        await manager.contents.save(context.path, {
-          type: 'notebook',
-          format: 'json',
-          content: NBTestUtils.DEFAULT_CONTENT
-        });
-        context.model.fromJSON(NBTestUtils.DEFAULT_CONTENT);
-        expect(context.model.cells.canUndo).toBe(true);
-        await context.initialize(false);
-        await context.ready;
-        expect(context.model.cells.canUndo).toBe(false);
+        await expect(context.ready).resolves.not.toThrow();
       });
     });
 
@@ -238,6 +213,17 @@ describe('docregistry/context', () => {
     describe('#path', () => {
       it('should be the current path for the context', () => {
         expect(typeof context.path).toBe('string');
+      });
+    });
+
+    describe('#lastModifiedCheckMargin', () => {
+      it('should be 500ms by default', () => {
+        expect(context.lastModifiedCheckMargin).toBe(500);
+      });
+
+      it('should be set-able', () => {
+        context.lastModifiedCheckMargin = 600;
+        expect(context.lastModifiedCheckMargin).toBe(600);
       });
     });
 
@@ -334,6 +320,24 @@ describe('docregistry/context', () => {
         expect(model.content).toBe('foo\nbar');
       });
 
+      it('should should preserve CR line endings upon save', async () => {
+        await context.initialize(true);
+        await manager.contents.save(context.path, {
+          type: factory.contentType,
+          format: factory.fileFormat,
+          content: 'foo\rbar'
+        });
+        await context.revert();
+        await context.save();
+        const opts: Contents.IFetchOptions = {
+          format: factory.fileFormat,
+          type: factory.contentType,
+          content: true
+        };
+        const model = await manager.contents.get(context.path, opts);
+        expect(model.content).toBe('foo\rbar');
+      });
+
       it('should should preserve CRLF line endings upon save', async () => {
         await context.initialize(true);
         await manager.contents.save(context.path, {
@@ -363,21 +367,35 @@ describe('docregistry/context', () => {
           await waitForDialog();
           const dialog = document.body.getElementsByClassName('jp-Dialog')[0];
           const input = dialog.getElementsByTagName('input')[0];
-
           input.value = newPath;
           await acceptDialog();
         };
         const promise = func();
         await initialize;
 
+        const changed = signalToPromise(manager.contents.fileChanged);
         const oldPath = context.path;
         await context.saveAs();
         await promise;
-        expect(context.path).toBe(newPath);
+
+        // We no longer rename the current document
+        //expect(context.path).toBe(newPath);
+
+        // Make sure the signal emitted has a different path
+        const res = await changed;
+        expect(res[1].type).toBe('save');
+        expect(res[1].newValue?.path).toEqual(newPath);
+        expect(res[1].newValue?.path !== oldPath).toBe(true);
+
         // Make sure the both files are there now.
         const model = await manager.contents.get('', { content: true });
         expect(model.content.find((x: any) => x.name === oldPath)).toBeTruthy();
         expect(model.content.find((x: any) => x.name === newPath)).toBeTruthy();
+
+        // Make sure both files are equal
+        const model1 = await manager.contents.get(oldPath, { content: true });
+        const model2 = await manager.contents.get(newPath, { content: true });
+        expect(model1.content).toEqual(model2.content);
       });
 
       it('should bring up a conflict dialog', async () => {
@@ -398,9 +416,22 @@ describe('docregistry/context', () => {
         });
         await context.initialize(true);
         const promise = func();
+
+        const oldPath = context.path;
         await context.saveAs();
         await promise;
-        expect(context.path).toBe(newPath);
+
+        // We no longer rename the current document
+        //expect(context.path).toBe(newPath);
+        // Make sure the both files are there now.
+        const model = await manager.contents.get('', { content: true });
+        expect(model.content.find((x: any) => x.name === oldPath)).toBeTruthy();
+        expect(model.content.find((x: any) => x.name === newPath)).toBeTruthy();
+
+        // Make sure both files are equal
+        const model1 = await manager.contents.get(oldPath, { content: true });
+        const model2 = await manager.contents.get(newPath, { content: true });
+        expect(model1.content).toEqual(model2.content);
       });
 
       it('should keep the file if overwrite is aborted', async () => {
@@ -427,12 +458,31 @@ describe('docregistry/context', () => {
       });
 
       it('should just save if the file name does not change', async () => {
+        const changed = signalToPromise(manager.contents.fileChanged);
+
         const path = context.path;
         await context.initialize(true);
         const promise = context.saveAs();
         await acceptDialog();
         await promise;
         expect(context.path).toBe(path);
+
+        const res = await changed;
+        expect(res[1].newValue?.path).toEqual(path);
+      });
+
+      it('should no trigger save signal if the user cancel the dialog', async () => {
+        let saveEmitted = false;
+        await context.initialize(true);
+        manager.contents.fileChanged.connect((sender, args) => {
+          if (args.type === 'save') {
+            saveEmitted = true;
+          }
+        });
+        const promise = context.saveAs();
+        await dismissDialog();
+        await promise;
+        expect(saveEmitted).toEqual(false);
       });
     });
 

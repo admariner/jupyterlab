@@ -1,17 +1,15 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
+import { JupyterServer } from '@jupyterlab/testing';
 import { JSONExt } from '@lumino/coreutils';
-
-import { KernelSpecManager, KernelSpec } from '../../src';
-
+import { KernelSpec, KernelSpecManager } from '../../src';
 import {
-  PYTHON_SPEC,
-  KERNELSPECS,
   handleRequest,
-  makeSettings
+  KERNELSPECS,
+  makeSettings,
+  PYTHON_SPEC
 } from '../utils';
-import { JupyterServer } from '@jupyterlab/testutils';
 
 class TestManager extends KernelSpecManager {
   intercept: KernelSpec.ISpecModels | null = null;
@@ -31,7 +29,7 @@ const server = new JupyterServer();
 
 beforeAll(async () => {
   await server.start();
-});
+}, 30000);
 
 afterAll(async () => {
   await server.shutdown();
@@ -108,8 +106,8 @@ describe('kernel/manager', () => {
     });
 
     describe('#ready', () => {
-      it('should resolve when the manager is ready', () => {
-        return manager.ready;
+      it('should resolve when the manager is ready', async () => {
+        await expect(manager.ready).resolves.not.toThrow();
       });
     });
 

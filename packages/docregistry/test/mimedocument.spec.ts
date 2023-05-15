@@ -1,23 +1,19 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { Message } from '@lumino/messaging';
-
-import { BoxLayout } from '@lumino/widgets';
-
 import {
-  DocumentRegistry,
   Context,
+  DocumentRegistry,
   MimeContent,
   MimeDocument,
   MimeDocumentFactory
 } from '@jupyterlab/docregistry';
-
-import { RenderedText, IRenderMime } from '@jupyterlab/rendermime';
-
-import { defaultRenderMime, testEmission } from '@jupyterlab/testutils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
+import { createFileContextWithMockedServices } from '@jupyterlab/docregistry/lib/testutils';
+import { IRenderMime, RenderedText } from '@jupyterlab/rendermime';
+import { defaultRenderMime } from '@jupyterlab/rendermime/lib/testutils';
+import { testEmission } from '@jupyterlab/testing';
+import { Message } from '@lumino/messaging';
+import { BoxLayout } from '@lumino/widgets';
 
 const RENDERMIME = defaultRenderMime();
 
@@ -52,7 +48,7 @@ describe('docregistry/mimedocument', () => {
   let dContext: Context<DocumentRegistry.IModel>;
 
   beforeEach(async () => {
-    dContext = await Mock.createFileContext();
+    dContext = (await createFileContextWithMockedServices()) as any;
   });
 
   afterEach(() => {

@@ -3,30 +3,29 @@
 | Distributed under the terms of the Modified BSD License.
 |----------------------------------------------------------------------------*/
 
+import { CellType } from '@jupyterlab/nbformat';
+import { IDataConnector } from '@jupyterlab/statedb';
 import {
   PartialJSONObject,
-  Token,
   PartialJSONValue,
   ReadonlyPartialJSONObject,
-  ReadonlyPartialJSONValue
+  ReadonlyPartialJSONValue,
+  Token
 } from '@lumino/coreutils';
-
 import { IDisposable } from '@lumino/disposable';
-
 import { ISignal } from '@lumino/signaling';
-
-import { IDataConnector } from '@jupyterlab/statedb';
-
 import { ISchemaValidator } from './settingregistry';
+import type { RJSFSchema, UiSchema } from '@rjsf/utils';
 
-/* tslint:disable */
 /**
  * The setting registry token.
  */
 export const ISettingRegistry = new Token<ISettingRegistry>(
-  '@jupyterlab/coreutils:ISettingRegistry'
+  '@jupyterlab/coreutils:ISettingRegistry',
+  `A service for the JupyterLab settings system.
+  Use this if you want to store settings for your application.
+  See "schemaDir" for more information.`
 );
-/* tslint:enable */
 
 /**
  * The settings registry interface.
@@ -81,10 +80,15 @@ export interface ISettingRegistry {
    *
    * @param plugin - The name of the plugin whose settings are being loaded.
    *
+   * @param forceTransform - An optional parameter to force replay the transforms methods.
+   *
    * @returns A promise that resolves with a plugin settings object or rejects
    * if the plugin is not found.
    */
-  load(plugin: string): Promise<ISettingRegistry.ISettings>;
+  load(
+    plugin: string,
+    forceTransform?: boolean
+  ): Promise<ISettingRegistry.ISettings>;
 
   /**
    * Reload a plugin's settings into the registry even if they already exist.
@@ -174,6 +178,135 @@ export namespace ISettingRegistry {
     | 'string';
 
   /**
+   * The menu ids defined by default.
+   */
+  export type DefaultMenuId =
+    | 'jp-menu-file'
+    | 'jp-menu-file-new'
+    | 'jp-menu-edit'
+    | 'jp-menu-help'
+    | 'jp-menu-kernel'
+    | 'jp-menu-run'
+    | 'jp-menu-settings'
+    | 'jp-menu-view'
+    | 'jp-menu-tabs';
+
+  /**
+   * An interface defining a menu.
+   */
+  export interface IMenu extends PartialJSONObject {
+    /**
+     * Unique menu identifier
+     */
+    id: DefaultMenuId | string;
+
+    /**
+     * Menu items
+     */
+    items?: IMenuItem[];
+
+    /**
+     * The rank order of the menu among its siblings.
+     */
+    rank?: number;
+
+    /**
+     * Menu title
+     *
+     * #### Notes
+     * Default will be the capitalized id.
+     */
+    label?: string;
+
+    /**
+     * Menu icon id
+     *
+     * #### Note
+     * The icon id will looked for in registered LabIcon.
+     */
+    icon?: string;
+
+    /**
+     * Get the mnemonic index for the title.
+     *
+     * #### Notes
+     * The default value is `-1`.
+     */
+    mnemonic?: number;
+
+    /**
+     * Whether a menu is disabled. `False` by default.
+     *
+     * #### Notes
+     * This allows an user to suppress a menu.
+     */
+    disabled?: boolean;
+  }
+
+  /**
+   * An interface describing a menu item.
+   */
+  export interface IMenuItem extends PartialJSONObject {
+    /**
+     * The type of the menu item.
+     *
+     * The default value is `'command'`.
+     */
+    type?: 'command' | 'submenu' | 'separator';
+
+    /**
+     * The command to execute when the item is triggered.
+     *
+     * The default value is an empty string.
+     */
+    command?: string;
+
+    /**
+     * The arguments for the command.
+     *
+     * The default value is an empty object.
+     */
+    args?: PartialJSONObject;
+
+    /**
+     * The rank order of the menu item among its siblings.
+     */
+    rank?: number;
+
+    /**
+     * The submenu for a `'submenu'` type item.
+     *
+     * The default value is `null`.
+     */
+    submenu?: IMenu | null;
+
+    /**
+     * Whether a menu item is disabled. `false` by default.
+     *
+     * #### Notes
+     * This allows an user to suppress menu items.
+     */
+    disabled?: boolean;
+  }
+
+  /**
+   * An interface describing a context menu item
+   */
+  export interface IContextMenuItem extends IMenuItem {
+    /**
+     * The CSS selector for the context menu item.
+     *
+     * The context menu item will only be displayed in the context menu
+     * when the selector matches a node on the propagation path of the
+     * contextmenu event. This allows the menu item to be restricted to
+     * user-defined contexts.
+     *
+     * The selector must not contain commas.
+     */
+    selector: string;
+  }
+
+  /**
    * The settings for a specific plugin.
    */
   export interface IPlugin extends PartialJSONObject {
@@ -255,6 +388,14 @@ export namespace ISettingRegistry {
    */
   export interface ISchema extends IProperty {
     /**
+     * The JupyterLab menus that are created by a plugin's schema.
+     */
+    'jupyter.lab.menus'?: {
+      main: IMenu[];
+      context: IContextMenuItem[];
+    };
+
+    /**
      * Whether the schema is deprecated.
      *
      * #### Notes
@@ -280,6 +421,15 @@ export namespace ISettingRegistry {
     'jupyter.lab.setting-icon-label'?: string;
 
     /**
+     * The JupyterLab toolbars created by a plugin's schema.
+     *
+     * #### Notes
+     * The toolbar items are grouped by document or widget factory name
+     * that will contain a toolbar.
+     */
+    'jupyter.lab.toolbars'?: { [factory: string]: IToolbarItem[] };
+
+    /**
      * A flag that indicates plugin should be transformed before being used by
      * the setting registry.
      *
@@ -297,6 +447,11 @@ export namespace ISettingRegistry {
      * The JupyterLab shortcuts that are created by a plugin's schema.
      */
     'jupyter.lab.shortcuts'?: IShortcut[];
+
+    /**
+     * The JupyterLab metadata-form schema
+     */
+    'jupyter.lab.metadataforms'?: IMetadataForm[];
 
     /**
      * The root schema is always an object.
@@ -387,9 +542,7 @@ export namespace ISettingRegistry {
      *
      * @returns The setting value.
      */
-    get(
-      key: string
-    ): {
+    get(key: string): {
       composite: ReadonlyPartialJSONValue | undefined;
       user: ReadonlyPartialJSONValue | undefined;
     };
@@ -455,7 +608,12 @@ export namespace ISettingRegistry {
     disabled?: boolean;
 
     /**
-     * The key combination of the shortcut.
+     * The key sequence of the shortcut.
+     *
+     * ### Notes
+     *
+     * If this is a list like `['Ctrl A', 'B']`, the user needs to press
+     * `Ctrl A` followed by `B` to trigger the shortcuts.
      */
     keys: string[];
 
@@ -463,5 +621,159 @@ export namespace ISettingRegistry {
      * The CSS selector applicable to the shortcut.
      */
     selector: string;
+  }
+
+  /**
+   * An interface describing the metadata form.
+   */
+  export interface IMetadataForm extends PartialJSONObject {
+    /**
+     * The section unique ID.
+     */
+    id: string;
+
+    /**
+     * The metadata schema.
+     */
+    metadataSchema: IMetadataSchema;
+
+    /**
+     * The ui schema as used by react-JSON-schema-form.
+     */
+    uiSchema?: { [metadataKey: string]: UiSchema };
+
+    /**
+     * The jupyter properties.
+     */
+    metadataOptions?: { [metadataKey: string]: IMetadataOptions };
+
+    /**
+     * The section label.
+     */
+    label?: string;
+
+    /**
+     * The section rank in notebooktools panel.
+     */
+    rank?: number;
+
+    /**
+     * Whether to show the modified field from default value.
+     */
+    showModified?: boolean;
+
+    /**
+     * Keep the plugin at origin of the metadata form.
+     */
+    _origin?: string;
+  }
+
+  /**
+   * The metadata schema as defined in JSON schema.
+   */
+  export interface IMetadataSchema extends RJSFSchema {
+    /**
+     * The properties as defined in JSON schema, and interpretable by react-JSON-schema-form.
+     */
+    properties: { [option: string]: any };
+
+    /**
+     * The required fields.
+     */
+    required?: string[];
+
+    /**
+     * Support for allOf feature of JSON schema (useful for if/then/else).
+     */
+    allOf?: Array<PartialJSONObject>;
+  }
+
+  /**
+   * Options to customize the widget, the field and the relevant metadata.
+   */
+  export interface IMetadataOptions extends PartialJSONObject {
+    /**
+     * Name of a custom react widget registered.
+     */
+    customWidget?: string;
+
+    /**
+     * Name of a custom react field registered.
+     */
+    customField?: string;
+
+    /**
+     * Metadata applied to notebook or cell.
+     */
+    metadataLevel?: 'cell' | 'notebook';
+
+    /**
+     * Cells which should have this metadata.
+     */
+    cellTypes?: CellType[];
+
+    /**
+     * Whether to avoid writing default value in metadata.
+     */
+    writeDefault?: boolean;
+  }
+
+  /**
+   * An interface describing a toolbar item.
+   */
+  export interface IToolbarItem extends PartialJSONObject {
+    /**
+     * Unique toolbar item name
+     */
+    name: string;
+
+    /**
+     * The command to execute when the item is triggered.
+     *
+     * The default value is an empty string.
+     */
+    command?: string;
+
+    /**
+     * The arguments for the command.
+     *
+     * The default value is an empty object.
+     */
+    args?: PartialJSONObject;
+
+    /**
+     * Whether the toolbar item is ignored (i.e. not created). `false` by default.
+     *
+     * #### Notes
+     * This allows an user to suppress toolbar items.
+     */
+    disabled?: boolean;
+
+    /**
+     * Item icon id
+     *
+     * #### Note
+     * The id will be looked for in the LabIcon registry.
+     * The command icon will be overridden by this label if defined.
+     */
+    icon?: string;
+
+    /**
+     * Item label
+     *
+     * #### Note
+     * The command label will be overridden by this label if defined.
+     */
+    label?: string;
+
+    /**
+     * The rank order of the toolbar item among its siblings.
+     */
+    rank?: number;
+
+    /**
+     * The type of the toolbar item.
+     */
+    type?: 'command' | 'spacer';
   }
 }

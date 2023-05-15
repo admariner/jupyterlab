@@ -19,13 +19,7 @@
       "path": "../docmanager"
     },
     {
-      "path": "../docprovider"
-    },
-    {
       "path": "../docregistry"
-    },
-    {
-      "path": "../mainmenu"
     },
     {
       "path": "../services"
@@ -38,6 +32,9 @@
     },
     {
       "path": "../translation"
+    },
+    {
+      "path": "../ui-components"
     }
   ]
 }

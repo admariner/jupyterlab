@@ -2,18 +2,12 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { Dialog, showDialog, showErrorMessage } from '@jupyterlab/apputils';
-
-import { PathExt } from '@jupyterlab/coreutils';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
-
+import { PathExt } from '@jupyterlab/coreutils';
 import { Contents } from '@jupyterlab/services';
-
-import { nullTranslator, ITranslator } from '@jupyterlab/translation';
-
+import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { JSONObject } from '@lumino/coreutils';
-
 import { Widget } from '@lumino/widgets';
-
 import { IDocumentManager } from './';
 
 /**
@@ -22,14 +16,9 @@ import { IDocumentManager } from './';
 const FILE_DIALOG_CLASS = 'jp-FileDialog';
 
 /**
- * The class name added to checkboxes in file dialogs.
- */
-const FILE_DIALOG_CHECKBOX_CLASS = 'jp-FileDialog-Checkbox';
-
-/**
  * The class name added for the new name label in the rename dialog
  */
-const RENAME_NEWNAME_TITLE_CLASS = 'jp-new-name-title';
+const RENAME_NEW_NAME_TITLE_CLASS = 'jp-new-name-title';
 
 /**
  * A stripped-down interface for a file container.
@@ -50,18 +39,21 @@ export interface IFileContainer extends JSONObject {
  */
 export function renameDialog(
   manager: IDocumentManager,
-  oldPath: string,
+  context: DocumentRegistry.Context,
   translator?: ITranslator
-): Promise<Contents.IModel | null> {
+): Promise<void | null> {
   translator = translator || nullTranslator;
   const trans = translator.load('jupyterlab');
 
+  const localPath = context.localPath.split('/');
+  const fileName = localPath.pop() || context.localPath;
+
   return showDialog({
     title: trans.__('Rename File'),
-    body: new RenameHandler(oldPath),
+    body: new RenameHandler(fileName),
     focusNodeSelector: 'input',
     buttons: [
-      Dialog.cancelButton({ label: trans.__('Cancel') }),
+      Dialog.cancelButton(),
       Dialog.okButton({ label: trans.__('Rename') })
     ]
   }).then(result => {
@@ -80,51 +72,7 @@ export function renameDialog(
       );
       return null;
     }
-    const basePath = PathExt.dirname(oldPath);
-    const newPath = PathExt.join(basePath, result.value);
-    return renameFile(manager, oldPath, newPath);
-  });
-}
-
-/**
- * Name a file on first save with a dialog.
- */
-export function nameOnSaveDialog(
-  manager: IDocumentManager,
-  context: DocumentRegistry.Context,
-  translator?: ITranslator
-): Promise<Contents.IModel | null> {
-  translator = translator || nullTranslator;
-  const trans = translator.load('jupyterlab');
-  const oldPath = context.path;
-
-  return showDialog({
-    title: trans.__('Name File'),
-    body: new NameOnSaveHandler(manager, oldPath),
-    focusNodeSelector: 'input',
-    buttons: [Dialog.okButton({ label: trans.__('Enter') })]
-  }).then(result => {
-    context.model.dirty = false;
-    context.contentsModel!.renamed = true;
-    if (!result.value) {
-      return renameFile(manager, oldPath, oldPath);
-    }
-
-    if (!isValidFileName(result.value)) {
-      void showErrorMessage(
-        trans.__('Naming Error'),
-        Error(
-          trans.__(
-            '"%1" is not a valid name for a file. Names must have nonzero length, and cannot include "/", "\\", or ":"',
-            result.value
-          )
-        )
-      );
-      return renameFile(manager, oldPath, oldPath);
-    }
-    const basePath = PathExt.dirname(oldPath);
-    const newPath = PathExt.join(basePath, result.value);
-    return renameFile(manager, oldPath, newPath);
+    return context.rename(result.value);
   });
 }
 
@@ -137,10 +85,13 @@ export function renameFile(
   newPath: string
 ): Promise<Contents.IModel | null> {
   return manager.rename(oldPath, newPath).catch(error => {
-    if (error.message.indexOf('409') === -1) {
+    if (error.response.status !== 409) {
+      // if it's not caused by an already existing file, rethrow
       throw error;
     }
-    return shouldOverwrite(newPath).then(value => {
+
+    // otherwise, ask for confirmation
+    return shouldOverwrite(newPath).then((value: boolean) => {
       if (value) {
         return manager.overwrite(oldPath, newPath);
       }
@@ -163,7 +114,7 @@ export function shouldOverwrite(
     title: trans.__('Overwrite file?'),
     body: trans.__('"%1" already exists, overwrite?', path),
     buttons: [
-      Dialog.cancelButton({ label: trans.__('Cancel') }),
+      Dialog.cancelButton(),
       Dialog.warnButton({ label: trans.__('Overwrite') })
     ]
   };
@@ -234,92 +185,13 @@ namespace Private {
 
     const nameTitle = document.createElement('label');
     nameTitle.textContent = trans.__('New Name');
-    nameTitle.className = RENAME_NEWNAME_TITLE_CLASS;
+    nameTitle.className = RENAME_NEW_NAME_TITLE_CLASS;
     const name = document.createElement('input');
 
     body.appendChild(existingLabel);
     body.appendChild(existingPath);
     body.appendChild(nameTitle);
     body.appendChild(name);
-    return body;
-  }
-}
-
-/**
- * A widget used to name file on first save.
- */
-class NameOnSaveHandler extends Widget {
-  /**
-   * Construct a new "name notebook file" dialog.
-   */
-  constructor(manager: IDocumentManager, oldPath: string) {
-    super({ node: Private.createNameFileNode(manager) });
-    this.addClass(FILE_DIALOG_CLASS);
-    const ext = PathExt.extname(oldPath);
-    const value = (this.inputNode.value = PathExt.basename(oldPath));
-    this.inputNode.setSelectionRange(0, value.length - ext.length);
-  }
-
-  /**
-   * Get the input text node.
-   */
-  get inputNode(): HTMLInputElement {
-    return this.node.getElementsByTagName('input')[0] as HTMLInputElement;
-  }
-
-  /**
-   * Get the value of the input widget.
-   */
-  getValue(): string {
-    return this.inputNode.value;
-  }
-
-  /**
-   * Get the checkbox node.
-   */
-  get checkboxNode(): HTMLInputElement {
-    return this.node.getElementsByTagName('input')[1] as HTMLInputElement;
-  }
-
-  /**
-   * Get checked of the checkbox widget.
-   */
-  getChecked(): boolean {
-    return this.checkboxNode.checked;
-  }
-}
-
-/**
- * A namespace for private data.
- */
-namespace Private {
-  /**
-   * Create the node for a rename after launch handler.
-   */
-  export function createNameFileNode(
-    manager: IDocumentManager,
-    translator?: ITranslator
-  ): HTMLElement {
-    translator = translator || nullTranslator;
-    const trans = translator.load('jupyterlab');
-    const body = document.createElement('div');
-    const name = document.createElement('input');
-    const checkbox = document.createElement('input');
-    const label = document.createElement('label');
-    const div = document.createElement('div');
-
-    checkbox.type = 'checkbox';
-    checkbox.classList.add(FILE_DIALOG_CHECKBOX_CLASS);
-    checkbox.addEventListener('change', function () {
-      manager.nameFileOnSave = !this.checked;
-    });
-
-    label.textContent = trans.__("Don't ask me again");
-    body.appendChild(name);
-    div.appendChild(checkbox);
-    div.appendChild(label);
-    body.appendChild(div);
-
     return body;
   }
 }

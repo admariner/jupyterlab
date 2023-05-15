@@ -1,3 +1,6 @@
+.. Copyright (c) Jupyter Development Team.
+.. Distributed under the terms of the Modified BSD License.
+
 ``LabIcon`` - set up and render icons
 =====================================
 
@@ -72,20 +75,19 @@ DOM node ``elem`` by using the ``ReactDOM`` module:
 
 .. code:: typescript
 
-   ReactDOM.render(jupyterIcon.react, elem);
+   const root = createRoot(elem);
+   root.render(jupyterIcon.react);
 
 If do you use ``ReactDOM`` to render, and if the ``elem`` node is ever
 removed from the DOM, you’ll first need to clean it up:
 
 .. code:: typescript
 
-   ReactDOM.unmountComponentAtNode(elem);
+   root.unmount();
 
 This cleanup step is not a special property of ``LabIcon``, but is
 instead needed for any React component that is rendered directly at the
-top level by ``ReactDOM``: failure to call ``unmountComponentAtNode``
-can result in a `memory
-leak <https://stackoverflow.com/a/48198011/425458>`__.
+top level by ``ReactDOM``.
 
 How to create your own custom ``LabIcon``
 -----------------------------------------
@@ -139,7 +141,7 @@ Sync icon color to JupyterLab theme
    <em>Example svgs with class annotation can be found in <a href="https://github.com/jupyterlab/jupyterlab/tree/f0153e0258b32674c9aec106383ddf7b618cebab/packages/ui-components/style/icons">ui-components/style/icons</a></em>
 
 |
-| You can ensure that the colors of your custom ``LabIcon`` sync up to the colors of the current JuptyerLab theme by adding appropriate ``class`` annotations to each colored element of your icon's svg.
+| You can ensure that the colors of your custom ``LabIcon`` sync up to the colors of the current JupyterLab theme by adding appropriate ``class`` annotations to each colored element of your icon's svg.
 |
 | In other words, each element of your svg that a ``fill="..."`` or a ``stroke="..."`` property should also have a ``class="jp-icon<whatever>"`` property.
 
@@ -148,7 +150,7 @@ Available icon classes
 
 .. raw:: html
 
-   <em>Icon-related CSS classes are defined in <a href="https://github.com/jupyterlab/jupyterlab/blob/f0153e0258b32674c9aec106383ddf7b618cebab/packages/ui-components/style/icons.css">ui-components/style/icons.css</a></em>
+   <em>Icon-related CSS classes are defined in <a href="https://github.com/jupyterlab/jupyterlab/blob/master/packages/ui-components/style/icons.css">ui-components/style/icons.css</a></em>
 
 |
 | All colors shown are for the standard light/dark theme, mouse over for hex values.
@@ -169,7 +171,7 @@ Available icon classes
 Most one-color icons in JupyterLab (including the sidebar and toolbar
 icons) are colored using the ``jp-icon3`` class.
 
-For light/dark themes, ``jp-icon0`` corresponds to the darkest/lighest
+For light/dark themes, ``jp-icon0`` corresponds to the darkest/lightest
 background color, while ``jp-icon1`` is somewhat lighter/darker, and so
 forth.
 
@@ -187,8 +189,26 @@ forth.
    </ul>
 
 For light/dark themes, ``jp-icon-accent0`` corresponds to the
-lighest/darkest background color, while ``jp-icon-accent1`` is somewhat
+lightest/darkest background color, while ``jp-icon-accent1`` is somewhat
 darker/lighter, and so forth.
+
+Activity icons
+""""""""""""""
+
+Activity icons have their own set of CSS properties as it may not make sense to link them
+to a theme color. Here is a list of icons and the related properties:
+
+=========== ============================= =====================================
+   Icon             Primary color                    Secondary color
+=========== ============================= =====================================
+jupyter     ``jp-jupyter-icon-color``     None
+notebook    ``jp-notebook-icon-color``    None
+json        ``jp-json-icon-color``        None
+console     ``jp-console-icon-color``     ``jp-console-icon-background-color``
+terminal    ``jp-terminal-icon-color``    ``jp-terminal-icon-background-color``
+text editor ``jp-text-editor-icon-color`` None
+inspector   ``jp-inspector-icon-color``   None
+=========== ============================= =====================================
 
 Adding classes to a one-color icon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

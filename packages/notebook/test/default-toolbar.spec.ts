@@ -1,31 +1,25 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { simulate } from 'simulate-event';
-
-import { Widget } from '@lumino/widgets';
-
-import { Context } from '@jupyterlab/docregistry';
-
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
-
+import { Context } from '@jupyterlab/docregistry';
+import { KernelMessage } from '@jupyterlab/services';
+import {
+  acceptDialog,
+  framePromise,
+  signalToPromise,
+  sleep
+} from '@jupyterlab/testing';
+import { PromiseDelegate } from '@lumino/coreutils';
+import { Widget } from '@lumino/widgets';
+import { simulate } from 'simulate-event';
 import {
   INotebookModel,
   NotebookActions,
   NotebookPanel,
   ToolbarItems
-} from '../src';
-
-import {
-  signalToPromise,
-  sleep,
-  framePromise,
-  acceptDialog
-} from '@jupyterlab/testutils';
-
+} from '@jupyterlab/notebook';
 import * as utils from './utils';
-import { PromiseDelegate } from '@lumino/coreutils';
-import { KernelMessage } from '@jupyterlab/services';
 
 const JUPYTER_CELL_MIME = 'application/vnd.jupyter.cells';
 
@@ -38,6 +32,7 @@ describe('@jupyterlab/notebook', () => {
       beforeEach(async () => {
         context = await utils.createMockContext();
         panel = utils.createNotebookPanel(context);
+        panel.content.notebookConfig.windowingMode = 'none';
         context.model.fromJSON(utils.DEFAULT_CONTENT);
       });
 
@@ -52,8 +47,9 @@ describe('@jupyterlab/notebook', () => {
           Widget.attach(button, document.body);
           const promise = signalToPromise(context.fileChanged);
           await framePromise();
+          await button.renderPromise;
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
-          await promise;
+          await expect(promise).resolves.not.toThrow();
           button.dispose();
         });
 
@@ -72,6 +68,7 @@ describe('@jupyterlab/notebook', () => {
           const button = ToolbarItems.createInsertButton(panel);
           Widget.attach(button, document.body);
           await framePromise();
+          await button.renderPromise;
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
           expect(panel.content.activeCellIndex).toBe(1);
           expect(panel.content.activeCell).toBeInstanceOf(CodeCell);
@@ -93,6 +90,7 @@ describe('@jupyterlab/notebook', () => {
           const count = panel.content.widgets.length;
           Widget.attach(button, document.body);
           await framePromise();
+          await button.renderPromise;
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
           expect(panel.content.widgets.length).toBe(count - 1);
           expect(utils.clipboard.hasData(JUPYTER_CELL_MIME)).toBe(true);
@@ -114,6 +112,7 @@ describe('@jupyterlab/notebook', () => {
           const count = panel.content.widgets.length;
           Widget.attach(button, document.body);
           await framePromise();
+          await button.renderPromise;
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
           expect(panel.content.widgets.length).toBe(count);
           expect(utils.clipboard.hasData(JUPYTER_CELL_MIME)).toBe(true);
@@ -137,6 +136,7 @@ describe('@jupyterlab/notebook', () => {
           const count = panel.content.widgets.length;
           Widget.attach(button, document.body);
           await framePromise();
+          await button.renderPromise;
           NotebookActions.copy(panel.content);
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
           await sleep();
@@ -160,12 +160,14 @@ describe('@jupyterlab/notebook', () => {
           const item = ToolbarItems.createCellTypeItem(panel);
           Widget.attach(item, document.body);
           await framePromise();
+          await item.renderPromise;
           const node = item.node.getElementsByTagName(
             'select'
           )[0] as HTMLSelectElement;
           expect(node.value).toBe('code');
           panel.content.activeCellIndex++;
           await framePromise();
+          await item.renderPromise;
           expect(node.value).toBe('markdown');
           item.dispose();
         });
@@ -174,12 +176,14 @@ describe('@jupyterlab/notebook', () => {
           const item = ToolbarItems.createCellTypeItem(panel);
           Widget.attach(item, document.body);
           await framePromise();
+          await item.renderPromise;
           const node = item.node.getElementsByTagName(
             'select'
           )[0] as HTMLSelectElement;
           expect(node.value).toBe('code');
           panel.content.select(panel.content.widgets[1]);
           await framePromise();
+          await item.renderPromise;
           expect(node.value).toBe('-');
           item.dispose();
         });
@@ -188,14 +192,15 @@ describe('@jupyterlab/notebook', () => {
           const item = ToolbarItems.createCellTypeItem(panel);
           Widget.attach(item, document.body);
           await framePromise();
+          await item.renderPromise;
           const node = item.node.getElementsByTagName(
             'select'
           )[0] as HTMLSelectElement;
           expect(node.value).toBe('code');
-          const cell = panel.model!.contentFactory.createCodeCell({});
-          panel.model!.cells.insert(1, cell);
+          panel.model!.sharedModel.insertCell(0, { cell_type: 'code' });
           panel.content.select(panel.content.widgets[1]);
           await framePromise();
+          await item.renderPromise;
           expect(node.value).toBe('code');
           item.dispose();
         });
@@ -220,8 +225,7 @@ describe('@jupyterlab/notebook', () => {
             'restart-and-run',
             'cellType',
             'spacer',
-            'kernelName',
-            'kernelStatus'
+            'kernelName'
           ]);
         });
       });
@@ -257,6 +261,7 @@ describe('@jupyterlab/notebook', () => {
           widget.select(mdCell);
 
           Widget.attach(button, document.body);
+          await button.renderPromise;
           await context.sessionContext.session!.kernel!.info;
 
           const delegate = new PromiseDelegate();
@@ -266,7 +271,7 @@ describe('@jupyterlab/notebook', () => {
             }
           });
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
-          await delegate.promise;
+          await expect(delegate.promise).resolves.not.toThrow();
           button.dispose();
         });
 
@@ -290,6 +295,7 @@ describe('@jupyterlab/notebook', () => {
           mdCell.rendered = false;
 
           Widget.attach(button, document.body);
+          await button.renderPromise;
           await panel.sessionContext.ready;
           const delegate = new PromiseDelegate();
           panel.sessionContext.iopubMessage.connect((_, msg) => {
@@ -299,7 +305,7 @@ describe('@jupyterlab/notebook', () => {
           });
           simulate(button.node.firstChild as HTMLElement, 'mousedown');
           await acceptDialog();
-          await delegate.promise;
+          await expect(delegate.promise).resolves.not.toThrow();
           button.dispose();
         });
 

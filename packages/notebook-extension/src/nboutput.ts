@@ -5,13 +5,9 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
-import * as nbformat from '@jupyterlab/nbformat';
-
 import { ILoggerRegistry, LogLevel } from '@jupyterlab/logconsole';
-
+import * as nbformat from '@jupyterlab/nbformat';
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
-
 import { KernelMessage } from '@jupyterlab/services';
 
 /**
@@ -20,6 +16,7 @@ import { KernelMessage } from '@jupyterlab/services';
 export const logNotebookOutput: JupyterFrontEndPlugin<void> = {
   activate: activateNBOutput,
   id: '@jupyterlab/notebook-extension:log-output',
+  description: 'Adds cell outputs log to the application logger.',
   requires: [INotebookTracker],
   optional: [ILoggerRegistry],
   autoStart: true
@@ -29,7 +26,7 @@ function activateNBOutput(
   app: JupyterFrontEnd,
   nbtracker: INotebookTracker,
   loggerRegistry: ILoggerRegistry | null
-) {
+): void {
   if (!loggerRegistry) {
     // Automatically disable if logconsole is missing
     return;

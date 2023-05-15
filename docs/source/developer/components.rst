@@ -1,3 +1,6 @@
+.. Copyright (c) Jupyter Development Team.
+.. Distributed under the terms of the Modified BSD License.
+
 Using JupyterLab components
 ===========================
 
@@ -15,7 +18,7 @@ The ``examples`` directory contains:
 
 -  several stand-alone examples (``console``, ``filebrowser``,
    ``notebook``, ``terminal``)
--  a more complex example (``lab``).
+-  a more complex example (``app``).
 
 Installation instructions for the examples are found in the project's
 README.
@@ -39,7 +42,7 @@ Dissecting the 'filebrowser' example
 ------------------------------------
 
 The filebrowser example provides a stand-alone implementation of a
-filebrowser. Here's what the filebrowser's user interface looks like:
+filebrowser. Here's what the filebrowser’s user interface looks like:
 
 |filebrowser user interface|
 

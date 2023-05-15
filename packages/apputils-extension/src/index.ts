@@ -13,44 +13,37 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
 import {
   Dialog,
   ICommandPalette,
+  ISanitizer,
   ISessionContextDialogs,
   ISplashScreen,
   IWindowResolver,
-  WindowResolver,
+  MainAreaWidget,
   Printing,
-  sessionContextDialogs,
-  ISanitizer,
-  defaultSanitizer,
-  MainAreaWidget
+  Sanitizer,
+  SessionContextDialogs,
+  WindowResolver
 } from '@jupyterlab/apputils';
-
-import { URLExt, PageConfig } from '@jupyterlab/coreutils';
-
-import { IStateDB, StateDB } from '@jupyterlab/statedb';
-
-import { ITranslator } from '@jupyterlab/translation';
-
-import { jupyterFaviconIcon } from '@jupyterlab/ui-components';
-
-import { PromiseDelegate } from '@lumino/coreutils';
-
-import { DisposableDelegate } from '@lumino/disposable';
-
-import { Debouncer, Throttler } from '@lumino/polling';
-
-import { Palette } from './palette';
-
-import { settingsPlugin } from './settingsplugin';
-
+import { PageConfig, PathExt, URLExt } from '@jupyterlab/coreutils';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-
-import { themesPlugin, themesPaletteMenuPlugin } from './themesplugins';
-
+import { IStateDB, StateDB } from '@jupyterlab/statedb';
+import { ITranslator, nullTranslator } from '@jupyterlab/translation';
+import { jupyterFaviconIcon } from '@jupyterlab/ui-components';
+import { PromiseDelegate } from '@lumino/coreutils';
+import { DisposableDelegate } from '@lumino/disposable';
+import { Debouncer, Throttler } from '@lumino/polling';
+import { announcements } from './announcements';
+import { notificationPlugin } from './notificationplugin';
+import { Palette } from './palette';
+import { settingsPlugin } from './settingsplugin';
+import { kernelStatus, runningSessionsStatus } from './statusbarplugin';
+import { themesPaletteMenuPlugin, themesPlugin } from './themesplugins';
+import { toolbarRegistry } from './toolbarregistryplugin';
 import { workspacesPlugin } from './workspacesplugin';
+import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
+import { displayShortcuts } from './shortcuts';
 
 /**
  * The interval in milliseconds before recover options appear during splash.
@@ -71,7 +64,11 @@ namespace CommandIDs {
 
   export const runFirstEnabled = 'apputils:run-first-enabled';
 
+  export const runAllEnabled = 'apputils:run-all-enabled';
+
   export const toggleHeader = 'apputils:toggle-header';
+
+  export const displayShortcuts = 'apputils:display-shortcuts';
 }
 
 /**
@@ -79,6 +76,7 @@ namespace CommandIDs {
  */
 const palette: JupyterFrontEndPlugin<ICommandPalette> = {
   id: '@jupyterlab/apputils-extension:palette',
+  description: 'Provides the command palette.',
   autoStart: true,
   requires: [ITranslator],
   provides: ICommandPalette,
@@ -103,6 +101,7 @@ const palette: JupyterFrontEndPlugin<ICommandPalette> = {
  */
 const paletteRestorer: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/apputils-extension:palette-restorer',
+  description: 'Restores the command palette.',
   autoStart: true,
   requires: [ILayoutRestorer, ITranslator],
   activate: (
@@ -119,6 +118,7 @@ const paletteRestorer: JupyterFrontEndPlugin<void> = {
  */
 const resolver: JupyterFrontEndPlugin<IWindowResolver> = {
   id: '@jupyterlab/apputils-extension:resolver',
+  description: 'Provides the window name resolver.',
   autoStart: true,
   provides: IWindowResolver,
   requires: [JupyterFrontEnd.IPaths, IRouter],
@@ -168,6 +168,7 @@ const resolver: JupyterFrontEndPlugin<IWindowResolver> = {
  */
 const splash: JupyterFrontEndPlugin<ISplashScreen> = {
   id: '@jupyterlab/apputils-extension:splash',
+  description: 'Provides the splash screen.',
   autoStart: true,
   requires: [ITranslator],
   provides: ISplashScreen,
@@ -215,7 +216,7 @@ const splash: JupyterFrontEndPlugin<ISplashScreen> = {
         }
 
         dialog = new Dialog({
-          title: trans.__('Loading...'),
+          title: trans.__('Loading…'),
           body: trans.__(`The loading screen is taking a long time.
 Would you like to clear the workspace or keep waiting?`),
           buttons: [
@@ -280,6 +281,7 @@ Would you like to clear the workspace or keep waiting?`),
 
 const print: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/apputils-extension:print',
+  description: 'Add the print capability',
   autoStart: true,
   requires: [ITranslator],
   activate: (app: JupyterFrontEnd, translator: ITranslator) => {
@@ -303,6 +305,7 @@ const print: JupyterFrontEndPlugin<void> = {
 
 export const toggleHeader: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/apputils-extension:toggle-header',
+  description: 'Adds a command to display the main area widget content header.',
   autoStart: true,
   requires: [ITranslator],
   optional: [ICommandPalette],
@@ -318,6 +321,7 @@ export const toggleHeader: JupyterFrontEndPlugin<void> = {
       label: trans.__('Show Header Above Content'),
       isEnabled: () =>
         app.shell.currentWidget instanceof MainAreaWidget &&
+        !app.shell.currentWidget.contentHeader.isDisposed &&
         app.shell.currentWidget.contentHeader.widgets.length > 0,
       isToggled: () => {
         const widget = app.shell.currentWidget;
@@ -346,23 +350,32 @@ async function updateTabTitle(workspace: string, db: IStateDB, name: string) {
   const data: any = await db.toJSON();
   let current: string = data['layout-restorer:data']?.main?.current;
   if (current === undefined) {
-    document.title = `JupyterLab${
+    document.title = `${PageConfig.getOption('appName') || 'JupyterLab'}${
       workspace.startsWith('auto-') ? ` (${workspace})` : ``
     }`;
   } else {
-    // First 15 characters of current document name
-    current = current.split(':')[1].slice(0, 15);
+    // File name from current path
+    let currentFile: string = PathExt.basename(
+      decodeURIComponent(window.location.href)
+    );
+    // Truncate to first 12 characters of current document name + ... if length > 15
+    currentFile =
+      currentFile.length > 15
+        ? currentFile.slice(0, 12).concat(`…`)
+        : currentFile;
     // Number of restorable items that are either notebooks or editors
     const count: number = Object.keys(data).filter(
       item => item.startsWith('notebook') || item.startsWith('editor')
     ).length;
 
     if (workspace.startsWith('auto-')) {
-      document.title = `${current} (${workspace}${
+      document.title = `${currentFile} (${workspace}${
         count > 1 ? ` : ${count}` : ``
       }) - ${name}`;
     } else {
-      document.title = `${current}${count > 1 ? ` (${count})` : ``} - ${name}`;
+      document.title = `${currentFile}${
+        count > 1 ? ` (${count})` : ``
+      } - ${name}`;
     }
   }
 }
@@ -377,6 +390,7 @@ async function updateTabTitle(workspace: string, db: IStateDB, name: string) {
  */
 const state: JupyterFrontEndPlugin<IStateDB> = {
   id: '@jupyterlab/apputils-extension:state',
+  description: 'Provides the application state. It is stored per workspaces.',
   autoStart: true,
   provides: IStateDB,
   requires: [JupyterFrontEnd.IPaths, IRouter, ITranslator],
@@ -412,6 +426,7 @@ const state: JupyterFrontEndPlugin<IStateDB> = {
     db.changed.connect(() => updateTabTitle(workspace, db, name));
 
     commands.addCommand(CommandIDs.loadState, {
+      label: trans.__('Load state for the current workspace.'),
       execute: async (args: IRouter.ILocation) => {
         // Since the command can be executed an arbitrary number of times, make
         // sure it is safe to call multiple times.
@@ -420,13 +435,12 @@ const state: JupyterFrontEndPlugin<IStateDB> = {
         }
 
         const { hash, path, search } = args;
-        const { urls } = paths;
         const query = URLExt.queryStringToObject(search || '');
         const clone =
           typeof query['clone'] === 'string'
             ? query['clone'] === ''
-              ? URLExt.join(urls.base, urls.app)
-              : URLExt.join(urls.base, urls.app, 'workspaces', query['clone'])
+              ? PageConfig.defaultWorkspace
+              : query['clone']
             : null;
         const source = clone || workspace || null;
 
@@ -487,6 +501,7 @@ const state: JupyterFrontEndPlugin<IStateDB> = {
     });
 
     commands.addCommand(CommandIDs.resetOnLoad, {
+      label: trans.__('Reset state when loading for the workspace.'),
       execute: (args: IRouter.ILocation) => {
         const { hash, path, search } = args;
         const query = URLExt.queryStringToObject(search || '');
@@ -549,10 +564,14 @@ const state: JupyterFrontEndPlugin<IStateDB> = {
  */
 const sessionDialogs: JupyterFrontEndPlugin<ISessionContextDialogs> = {
   id: '@jupyterlab/apputils-extension:sessionDialogs',
+  description: 'Provides the session context dialogs.',
   provides: ISessionContextDialogs,
+  optional: [ITranslator],
   autoStart: true,
-  activate: () => {
-    return sessionContextDialogs;
+  activate: async (app: JupyterFrontEnd, translator: ITranslator | null) => {
+    return new SessionContextDialogs({
+      translator: translator ?? nullTranslator
+    });
   }
 };
 
@@ -561,9 +580,15 @@ const sessionDialogs: JupyterFrontEndPlugin<ISessionContextDialogs> = {
  */
 const utilityCommands: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/apputils-extension:utilityCommands',
+  description: 'Adds meta commands to run set of other commands.',
   requires: [ITranslator],
+  optional: [ICommandPalette],
   autoStart: true,
-  activate: (app: JupyterFrontEnd, translator: ITranslator) => {
+  activate: (
+    app: JupyterFrontEnd,
+    translator: ITranslator,
+    palette: ICommandPalette | null
+  ) => {
     const trans = translator.load('jupyterlab');
     const { commands } = app;
     commands.addCommand(CommandIDs.runFirstEnabled, {
@@ -581,18 +606,101 @@ const utilityCommands: JupyterFrontEndPlugin<void> = {
         }
       }
     });
+
+    // Add a command for taking lists of commands and command arguments
+    // and running all the enabled commands.
+    commands.addCommand(CommandIDs.runAllEnabled, {
+      label: trans.__('Run All Enabled Commands Passed as Args'),
+      execute: async args => {
+        const commands: string[] = args.commands as string[];
+        const commandArgs: any = args.args;
+        const argList = Array.isArray(args);
+        const errorIfNotEnabled: boolean = args.errorIfNotEnabled as boolean;
+        for (let i = 0; i < commands.length; i++) {
+          const cmd = commands[i];
+          const arg = argList ? commandArgs[i] : commandArgs;
+          if (app.commands.isEnabled(cmd, arg)) {
+            await app.commands.execute(cmd, arg);
+          } else {
+            if (errorIfNotEnabled) {
+              console.error(`${cmd} is not enabled.`);
+            }
+          }
+        }
+      }
+    });
+
+    commands.addCommand(CommandIDs.displayShortcuts, {
+      label: trans.__('Show Keyboard Shortcuts'),
+      caption: trans.__(
+        'Show relevant keyboard shortcuts for the current active widget'
+      ),
+      execute: args => {
+        const included = app.shell.currentWidget?.node.contains(
+          document.activeElement
+        );
+
+        if (!included) {
+          const currentNode =
+            (app.shell.currentWidget as MainAreaWidget)?.content.node ??
+            app.shell.currentWidget?.node;
+          currentNode?.focus();
+        }
+        const options = { commands, trans };
+        return displayShortcuts(options);
+      }
+    });
+
+    if (palette) {
+      const category: string = trans.__('Help');
+      palette.addItem({ command: CommandIDs.displayShortcuts, category });
+    }
   }
 };
 
 /**
  * The default HTML sanitizer.
  */
-const sanitizer: JupyterFrontEndPlugin<ISanitizer> = {
-  id: '@jupyter/apputils-extension:sanitizer',
+const sanitizer: JupyterFrontEndPlugin<IRenderMime.ISanitizer> = {
+  id: '@jupyterlab/apputils-extension:sanitizer',
+  description: 'Provides the HTML sanitizer.',
   autoStart: true,
   provides: ISanitizer,
-  activate: () => {
-    return defaultSanitizer;
+  requires: [ISettingRegistry],
+  activate: (
+    app: JupyterFrontEnd,
+    settings: ISettingRegistry
+  ): IRenderMime.ISanitizer => {
+    const sanitizer = new Sanitizer();
+    const loadSetting = (setting: ISettingRegistry.ISettings): void => {
+      const allowedSchemes = setting.get('allowedSchemes')
+        .composite as Array<string>;
+
+      const autolink = setting.get('autolink').composite as boolean;
+
+      if (allowedSchemes) {
+        sanitizer.setAllowedSchemes(allowedSchemes);
+      }
+
+      sanitizer.setAutolink(autolink);
+    };
+
+    // Wait for the application to be restored and
+    // for the settings for this plugin to be loaded
+    settings
+      .load('@jupyterlab/apputils-extension:sanitizer')
+      .then(setting => {
+        // Read the settings
+        loadSetting(setting);
+
+        // Listen for your plugin setting changes using Signal
+        setting.changed.connect(loadSetting);
+      })
+      .catch(reason => {
+        console.error(`Failed to load sanitizer settings:`, reason);
+      });
+
+    return sanitizer;
   }
 };
 
@@ -600,10 +708,14 @@ const sanitizer: JupyterFrontEndPlugin<ISanitizer> = {
  * Export the plugins as default.
  */
 const plugins: JupyterFrontEndPlugin<any>[] = [
+  announcements,
+  kernelStatus,
+  notificationPlugin,
   palette,
   paletteRestorer,
   print,
   resolver,
+  runningSessionsStatus,
   sanitizer,
   settingsPlugin,
   state,
@@ -612,6 +724,7 @@ const plugins: JupyterFrontEndPlugin<any>[] = [
   themesPlugin,
   themesPaletteMenuPlugin,
   toggleHeader,
+  toolbarRegistry,
   utilityCommands,
   workspacesPlugin
 ];

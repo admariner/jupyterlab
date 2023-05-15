@@ -1,13 +1,10 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { Widget } from '@lumino/widgets';
-
-import { Token } from '@lumino/coreutils';
-
 import { IWidgetTracker, MainAreaWidget } from '@jupyterlab/apputils';
-
 import { Terminal } from '@jupyterlab/services';
+import { Token } from '@lumino/coreutils';
+import { Widget } from '@lumino/widgets';
 
 /**
  * A class that tracks editor widgets.
@@ -15,14 +12,15 @@ import { Terminal } from '@jupyterlab/services';
 export interface ITerminalTracker
   extends IWidgetTracker<MainAreaWidget<ITerminal.ITerminal>> {}
 
-/* tslint:disable */
 /**
  * The editor tracker token.
  */
 export const ITerminalTracker = new Token<ITerminalTracker>(
-  '@jupyterlab/terminal:ITerminalTracker'
+  '@jupyterlab/terminal:ITerminalTracker',
+  `A widget tracker for terminals.
+  Use this if you want to be able to iterate over and interact with terminals
+  created by the application.`
 );
-/* tslint:enable */
 
 /**
  * The namespace for terminals. Separated from the widget so it can be lazy
@@ -49,6 +47,21 @@ export namespace ITerminal {
      * Refresh the terminal session.
      */
     refresh(): Promise<void>;
+
+    /**
+     * Check if terminal has any text selected.
+     */
+    hasSelection(): boolean;
+
+    /**
+     * Paste text into terminal.
+     */
+    paste(data: string): void;
+
+    /**
+     * Get selected text from terminal.
+     */
+    getSelection(): string | null;
   }
   /**
    * Options for the terminal widget.
@@ -84,6 +97,11 @@ export namespace ITerminal {
      * Whether to shut down the session when closing a terminal or not.
      */
     shutdownOnClose: boolean;
+
+    /**
+     * Whether to close the widget when exiting a terminal or not.
+     */
+    closeOnExit: boolean;
 
     /**
      * Whether to blink the cursor.  Can only be set at startup.
@@ -128,6 +146,7 @@ export namespace ITerminal {
     lineHeight: 1.0,
     scrollback: 1000,
     shutdownOnClose: false,
+    closeOnExit: true,
     cursorBlink: true,
     initialCommand: '',
     screenReaderMode: false, // False by default, can cause scrollbar mouse interaction issues.
@@ -149,6 +168,7 @@ export namespace ITerminal {
     background: string;
     cursor: string;
     cursorAccent: string;
-    selection: string;
+    selectionBackground: string;
+    selectionInactiveBackground: string;
   }
 }

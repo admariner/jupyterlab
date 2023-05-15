@@ -1,5 +1,7 @@
 # project files
 coverage/
+.eslintcache
+.stylelintcache
 
 dev_mode/listings
 dev_mode/schemas
@@ -9,6 +11,9 @@ dev_mode/workspaces
 dev_mode/stats.json
 
 docs/_build
+docs/source/user/commands_list.md
+docs/source/extension/plugins_list.rst
+docs/source/extension/tokens_list.rst
 docs/api
 **/docs/source/_build
 
@@ -20,6 +25,7 @@ examples/federated/labextensions
 
 junit.xml
 
+jupyterlab/galata/@jupyterlab
 jupyterlab/geckodriver
 jupyterlab/static
 jupyterlab/schemas
@@ -28,9 +34,12 @@ jupyterlab/style.js
 jupyterlab/tests/**/static
 jupyterlab/tests/**/labextension
 
+ui-tests/test-output
+
 # Remove after next release
 jupyterlab/imports.css
 
+packages/codemirror/test/foo*.js
 packages/nbconvert-css/style/
 packages/services/examples/node/config.json
 packages/services/examples/browser/tmp
@@ -39,6 +48,14 @@ packages/theme-*/static
 tests/**/coverage
 tests/**/.cache-loader
 
+# galata
+galata/benchmark-results
+galata/playwright-report
+galata/test-results
+galata/*benchmark-expected.json
+
+package_json.tar.gz
+
 # javascript/typescript
 lib
 node_modules
@@ -46,7 +63,6 @@ node_modules
 *.tsbuildinfo
 lerna-debug.log
 yarn-error.log
-storybook-static
 
 # python
 .cache
@@ -96,6 +112,12 @@ iframe_figures/
 lerna-debug.log
 yarn-error.log
 
+# yarn >=2.x local files
+.yarn/*
+.pnp.*
+jupyterlab/staging/.yarn/*
+jupyterlab/staging/.pnp.*
+
 # copied changelog file
 docs/source/getting_started/changelog.md
 
@@ -110,4 +132,13 @@ junit.xml
 # ms IDE stuff
 *.code-workspace
 .history
-.vscode
+.vscode/*
+!.vscode/extension.json
+
+.jupyter_releaser_checkout
+
+# generated LSP interfaces
+packages/lsp/src/_*
+
+# generated reports
+webpack-bundle-analyzer.html

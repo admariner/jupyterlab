@@ -3,13 +3,13 @@
 
 import { h, VirtualElement } from '@lumino/virtualdom';
 import { CommandPalette } from '@lumino/widgets';
-
-import { checkIcon, filterListIcon } from '../iconimports';
 import { LabIconStyle } from '../../style';
 import { classes } from '../../utils';
+import { checkIcon, filterListIcon } from '../iconimports';
 
 const searchHeaderIcon = filterListIcon.bindprops({
-  stylesheet: 'commandPaletteHeader'
+  stylesheet: 'commandPaletteHeader',
+  className: 'jp-icon-hoverShow-content'
 });
 
 export namespace CommandPaletteSvg {
@@ -28,13 +28,7 @@ export namespace CommandPaletteSvg {
       const content = this.formatHeader(data);
       return h.li(
         {
-          className: classes(
-            'lm-CommandPalette-header',
-            'jp-icon-hoverShow',
-            /* <DEPRECATED> */
-            'p-CommandPalette-header'
-            /* </DEPRECATED> */
-          )
+          className: classes('lm-CommandPalette-header', 'jp-icon-hoverShow')
         },
         content,
         h.span(searchHeaderIcon)
@@ -56,12 +50,6 @@ export namespace CommandPaletteSvg {
         return h.div({ className }, checkIcon, data.item.iconLabel);
       }
 
-      /* <DEPRECATED> */
-      if (typeof data.item.icon === 'string') {
-        return h.div({ className }, data.item.iconLabel);
-      }
-      /* </DEPRECATED> */
-
       // if data.item.icon is undefined, it will be ignored
       return h.div({ className }, data.item.icon!, data.item.iconLabel);
     }
@@ -75,9 +63,6 @@ export namespace CommandPaletteSvg {
      */
     createIconClass(data: CommandPalette.IItemRenderData): string {
       let name = 'lm-CommandPalette-itemIcon';
-      /* <DEPRECATED> */
-      name += ' p-CommandPalette-itemIcon';
-      /* </DEPRECATED> */
 
       return classes(
         LabIconStyle.styleClass({

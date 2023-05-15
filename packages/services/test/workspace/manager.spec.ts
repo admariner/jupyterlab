@@ -1,19 +1,14 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { WorkspaceManager, ServerConnection } from '../../src';
-
-import { init } from '../utils';
-import { JupyterServer } from '@jupyterlab/testutils';
-
-// Initialize the fetch overrides.
-init();
+import { JupyterServer } from '@jupyterlab/testing';
+import { ServerConnection, WorkspaceManager } from '../../src';
 
 const server = new JupyterServer();
 
 beforeAll(async () => {
   await server.start();
-});
+}, 30000);
 
 afterAll(async () => {
   await server.shutdown();

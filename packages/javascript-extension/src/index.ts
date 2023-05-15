@@ -5,8 +5,8 @@
  * @module javascript-extension
  */
 
-import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 import { RenderedJavaScript } from '@jupyterlab/rendermime';
+import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 export const TEXT_JAVASCRIPT_MIMETYPE = 'text/javascript';
 export const APPLICATION_JAVASCRIPT_MIMETYPE = 'application/javascript';
@@ -68,6 +68,7 @@ export const rendererFactory: IRenderMime.IRendererFactory = {
 
 const extension: IRenderMime.IExtension = {
   id: '@jupyterlab/javascript-extension:factory',
+  description: 'Adds renderer for JavaScript content.',
   rendererFactory,
   rank: 0,
   dataType: 'string'

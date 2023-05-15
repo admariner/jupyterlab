@@ -2,26 +2,21 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { SessionContext } from '@jupyterlab/apputils';
-
-import { KernelManager } from '@jupyterlab/services';
-
-import { Message } from '@lumino/messaging';
-
-import { Widget } from '@lumino/widgets';
-
+import { createSessionContext } from '@jupyterlab/apputils/lib/testutils';
 import {
   IOutputAreaModel,
-  OutputAreaModel,
-  OutputArea
+  OutputArea,
+  OutputAreaModel
 } from '@jupyterlab/outputarea';
-
+import { KernelManager } from '@jupyterlab/services';
+import { JupyterServer } from '@jupyterlab/testing';
 import {
-  createSessionContext,
-  defaultRenderMime,
-  NBTestUtils,
-  JupyterServer,
-  flakyIt as it
-} from '@jupyterlab/testutils';
+  DEFAULT_OUTPUTS,
+  defaultRenderMime
+} from '@jupyterlab/rendermime/lib/testutils';
+import { Message } from '@lumino/messaging';
+import { Widget } from '@lumino/widgets';
+import { simulate } from 'simulate-event';
 
 /**
  * The default rendermime instance to use for testing.
@@ -47,24 +42,26 @@ class LogOutputArea extends OutputArea {
   }
 }
 
-const server = new JupyterServer();
-
-beforeAll(async () => {
-  jest.setTimeout(20000);
-  await server.start();
-});
-
-afterAll(async () => {
-  await server.shutdown();
-});
-
 describe('outputarea/widget', () => {
+  let server: JupyterServer;
+
+  jest.retryTimes(3);
+
+  beforeAll(async () => {
+    server = new JupyterServer();
+    await server.start();
+  }, 30000);
+
+  afterAll(async () => {
+    await server.shutdown();
+  });
+
   let widget: LogOutputArea;
   let model: OutputAreaModel;
 
   beforeEach(() => {
     model = new OutputAreaModel({
-      values: NBTestUtils.DEFAULT_OUTPUTS,
+      values: DEFAULT_OUTPUTS,
       trusted: true
     });
     widget = new LogOutputArea({ rendermime, model });
@@ -107,15 +104,90 @@ describe('outputarea/widget', () => {
       });
     });
 
+    describe('#maxNumberOutputs', () => {
+      test.each([20, 6, 5, 2])(
+        'should control the list of visible outputs',
+        maxNumberOutputs => {
+          const widget = new OutputArea({
+            rendermime,
+            model,
+            maxNumberOutputs
+          });
+
+          expect(widget.widgets.length).toBeLessThanOrEqual(
+            maxNumberOutputs + 1
+          );
+
+          if (widget.widgets.length > maxNumberOutputs) {
+            // eslint-disable-next-line jest/no-conditional-expect
+            expect(
+              widget.widgets[widget.widgets.length - 1].node.textContent
+            ).toContain('Show more outputs');
+          } else {
+            // eslint-disable-next-line jest/no-conditional-expect
+            expect(
+              widget.widgets[widget.widgets.length - 1].node.textContent
+            ).not.toContain('Show more outputs');
+          }
+        }
+      );
+
+      test('should display all widgets when clicked', () => {
+        const widget = new OutputArea({
+          rendermime,
+          model,
+          maxNumberOutputs: 2
+        });
+
+        expect(widget.widgets.length).toBeLessThan(model.length);
+        Widget.attach(widget, document.body);
+        simulate(
+          widget.widgets[widget.widgets.length - 1].node.querySelector('a')!,
+          'click'
+        );
+        Widget.detach(widget);
+
+        expect(widget.widgets.length).toEqual(model.length);
+      });
+
+      test('should display new widgets if increased', () => {
+        const widget = new OutputArea({
+          rendermime,
+          model,
+          maxNumberOutputs: 2
+        });
+        expect(widget.widgets.length).toBeLessThan(model.length);
+
+        widget.maxNumberOutputs += 1;
+
+        expect(widget.widgets.length).toEqual(widget.maxNumberOutputs + 1);
+        expect(widget.widgets.length).toBeLessThan(model.length);
+      });
+
+      test('should not change displayed widgets if reduced', () => {
+        const widget = new OutputArea({
+          rendermime,
+          model,
+          maxNumberOutputs: 2
+        });
+        expect(widget.widgets.length).toBeLessThan(model.length);
+
+        widget.maxNumberOutputs -= 1;
+
+        expect(widget.widgets.length).toBeGreaterThan(
+          widget.maxNumberOutputs + 1
+        );
+        expect(widget.widgets.length).toBeLessThan(model.length);
+      });
+    });
+
     describe('#widgets', () => {
       it('should get the child widget at the specified index', () => {
         expect(widget.widgets[0]).toBeInstanceOf(Widget);
       });
 
       it('should get the number of child widgets', () => {
-        expect(widget.widgets.length).toBe(
-          NBTestUtils.DEFAULT_OUTPUTS.length - 1
-        );
+        expect(widget.widgets.length).toBe(DEFAULT_OUTPUTS.length - 1);
         widget.model.clear();
         expect(widget.widgets.length).toBe(0);
       });
@@ -136,9 +208,9 @@ describe('outputarea/widget', () => {
       });
 
       it('should execute code on a kernel and send outputs to the model', async () => {
-        const future = sessionContext.session?.kernel?.requestExecute({
+        const future = sessionContext.session!.kernel!.requestExecute({
           code: CODE
-        })!;
+        });
         widget.future = future;
         const reply = await future.done;
         expect(reply!.content.execution_count).toBeTruthy();
@@ -147,10 +219,10 @@ describe('outputarea/widget', () => {
       });
 
       it('should clear existing outputs', async () => {
-        widget.model.fromJSON(NBTestUtils.DEFAULT_OUTPUTS);
-        const future = sessionContext.session?.kernel?.requestExecute({
+        widget.model.fromJSON(DEFAULT_OUTPUTS);
+        const future = sessionContext.session!.kernel!.requestExecute({
           code: CODE
-        })!;
+        });
         widget.future = future;
         const reply = await future.done;
         expect(reply!.content.execution_count).toBeTruthy();
@@ -162,7 +234,7 @@ describe('outputarea/widget', () => {
       it('should handle an added output', () => {
         widget.model.clear();
         widget.methods = [];
-        widget.model.add(NBTestUtils.DEFAULT_OUTPUTS[0]);
+        widget.model.add(DEFAULT_OUTPUTS[0]);
         expect(widget.methods).toEqual(
           expect.arrayContaining(['onModelChanged'])
         );
@@ -170,7 +242,7 @@ describe('outputarea/widget', () => {
       });
 
       it('should handle a clear', () => {
-        widget.model.fromJSON(NBTestUtils.DEFAULT_OUTPUTS);
+        widget.model.fromJSON(DEFAULT_OUTPUTS);
         widget.methods = [];
         widget.model.clear();
         expect(widget.methods).toEqual(
@@ -181,9 +253,9 @@ describe('outputarea/widget', () => {
 
       it('should handle a set', () => {
         widget.model.clear();
-        widget.model.add(NBTestUtils.DEFAULT_OUTPUTS[0]);
+        widget.model.add(DEFAULT_OUTPUTS[0]);
         widget.methods = [];
-        widget.model.add(NBTestUtils.DEFAULT_OUTPUTS[0]);
+        widget.model.add(DEFAULT_OUTPUTS[0]);
         expect(widget.methods).toEqual(
           expect.arrayContaining(['onModelChanged'])
         );
@@ -265,7 +337,7 @@ describe('outputarea/widget', () => {
       });
 
       it('should clear existing outputs', async () => {
-        widget.model.fromJSON(NBTestUtils.DEFAULT_OUTPUTS);
+        widget.model.fromJSON(DEFAULT_OUTPUTS);
         const reply = await OutputArea.execute(CODE, widget, sessionContext);
         expect(reply!.content.execution_count).toBeTruthy();
         expect(model.length).toBe(1);
@@ -381,6 +453,14 @@ describe('outputarea/widget', () => {
           const factory = new OutputArea.ContentFactory();
           const future = kernel.requestExecute({ code: CODE });
           const options = {
+            parent_header: {
+              date: '',
+              msg_id: '',
+              msg_type: 'input_request' as const,
+              session: '',
+              username: '',
+              version: ''
+            },
             prompt: 'hello',
             password: false,
             future

@@ -85,20 +85,20 @@ Alternatively, you can just render the icon directly into any existing
 DOM node `elem` by using the `ReactDOM` module:
 
 ```typescript
-ReactDOM.render(jupyterIcon.react, elem);
+const root = createRoot(elem);
+root.render(jupyterIcon.react);
 ```
 
 If do you use `ReactDOM` to render, and if the `elem` node is ever
 removed from the DOM, you’ll first need to clean it up:
 
 ```typescript
-ReactDOM.unmountComponentAtNode(elem);
+root.unmount();
 ```
 
 This cleanup step is not a special property of `LabIcon`, but is instead
 needed for any React component that is rendered directly at the top
-level by `ReactDOM`: failure to call `unmountComponentAtNode` can result
-in a [memory leak](https://stackoverflow.com/a/48198011/425458).
+level by `ReactDOM`.
 
 ## How to create your own custom `LabIcon`
 
@@ -174,7 +174,7 @@ hex values.
 Most one-color icons in JupyterLab (including the sidebar and toolbar
 icons) are colored using the `jp-icon3` class.
 
-For light/dark themes, `jp-icon0` corresponds to the darkest/lighest
+For light/dark themes, `jp-icon0` corresponds to the darkest/lightest
 background color, while `jp-icon1` is somewhat lighter/darker, and so
 forth.
 
@@ -189,13 +189,13 @@ forth.
 </ul>
 
 For light/dark themes, `jp-icon-accent0` corresponds to the
-lighest/darkest background color, while `jp-icon-accent1` is somewhat
+lightest/darkest background color, while `jp-icon-accent1` is somewhat
 darker/lighter, and so forth.
 
 ### Adding classes to a one-color icon
 
 For most simple, one-color icons, it is desirable for the icon's color
-to strongly constrast with that of the application's background. You can
+to strongly contrast with that of the application's background. You can
 achieve this using one of the `jp-iconX` classes.
 
 **Example: check icon**

@@ -1,23 +1,21 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { UUID } from '@lumino/coreutils';
-
-import { KernelMessage } from '@jupyterlab/services';
-
-import { Signal } from '@lumino/signaling';
-
-import { Panel } from '@lumino/widgets';
-
-import { CodeCellModel, CodeCell } from '@jupyterlab/cells';
-
-import { defaultRenderMime, NBTestUtils } from '@jupyterlab/testutils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
-
 import { ISessionContext } from '@jupyterlab/apputils';
-
-import { ForeignHandler } from '../src';
+import { CodeCell, CodeCellModel } from '@jupyterlab/cells';
+import { NBTestUtils } from '@jupyterlab/cells/lib/testutils';
+import { ForeignHandler } from '@jupyterlab/console';
+import { defaultRenderMime } from '@jupyterlab/rendermime/lib/testutils';
+import * as Mock from '@jupyterlab/docregistry/lib/testutils';
+import {
+  cloneKernel,
+  KernelMock,
+  SessionConnectionMock
+} from '@jupyterlab/services/lib/testutils';
+import { KernelMessage } from '@jupyterlab/services';
+import { UUID } from '@lumino/coreutils';
+import { Signal } from '@lumino/signaling';
+import { Panel } from '@lumino/widgets';
 
 class TestParent extends Panel implements ForeignHandler.IReceiver {
   addCell(cell: CodeCell, msgId?: string): void {
@@ -29,7 +27,7 @@ class TestParent extends Panel implements ForeignHandler.IReceiver {
 
   createCodeCell(): CodeCell {
     const contentFactory = NBTestUtils.createCodeCellFactory();
-    const model = new CodeCellModel({});
+    const model = new CodeCellModel();
     const cell = new CodeCell({
       model,
       rendermime,
@@ -116,14 +114,14 @@ describe('@jupyterlab/console', () => {
 
     beforeAll(async function () {
       const path = UUID.uuid4();
-      const kernel0 = new Mock.KernelMock({});
-      const kernel1 = Mock.cloneKernel(kernel0);
-      const connection0 = new Mock.SessionConnectionMock(
+      const kernel0 = new KernelMock({});
+      const kernel1 = cloneKernel(kernel0);
+      const connection0 = new SessionConnectionMock(
         { model: { path, type: 'test' } },
         kernel0
       );
       sessionContext = new Mock.SessionContextMock({}, connection0);
-      const connection1 = new Mock.SessionConnectionMock(
+      const connection1 = new SessionConnectionMock(
         { model: { path, type: 'test2' } },
         kernel1
       );

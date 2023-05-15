@@ -3,26 +3,24 @@
 
 import {
   ISessionContext,
+  MainAreaWidget,
   SessionContext,
-  sessionContextDialogs,
-  MainAreaWidget
+  SessionContextDialogs
 } from '@jupyterlab/apputils';
 import { IEditorMimeTypeService } from '@jupyterlab/codeeditor';
-import { PathExt, Time } from '@jupyterlab/coreutils';
+import { PathExt, Time, URLExt } from '@jupyterlab/coreutils';
 import {
   IRenderMimeRegistry,
   RenderMimeRegistry
 } from '@jupyterlab/rendermime';
 import { ServiceManager } from '@jupyterlab/services';
+import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { consoleIcon } from '@jupyterlab/ui-components';
-
 import { Token, UUID } from '@lumino/coreutils';
 import { IDisposable } from '@lumino/disposable';
 import { Message } from '@lumino/messaging';
 import { Panel } from '@lumino/widgets';
-
 import { CodeConsole } from './widget';
-import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 /**
  * The class name added to console panels.
@@ -50,18 +48,17 @@ export class ConsolePanel extends MainAreaWidget<Panel> {
       sessionContext,
       translator
     } = options;
-    this.translator = translator || nullTranslator;
+    this.translator = translator ?? nullTranslator;
     const trans = this.translator.load('jupyterlab');
 
-    const contentFactory = (this.contentFactory =
-      options.contentFactory || ConsolePanel.defaultContentFactory);
+    const contentFactory = (this.contentFactory = options.contentFactory);
     const count = Private.count++;
     if (!path) {
-      path = `${basePath || ''}/console-${count}-${UUID.uuid4()}`;
+      path = URLExt.join(basePath || '', `console-${count}-${UUID.uuid4()}`);
     }
 
     sessionContext = this._sessionContext =
-      sessionContext ||
+      sessionContext ??
       new SessionContext({
         sessionManager: manager.sessions,
         specsManager: manager.kernelspecs,
@@ -73,7 +70,7 @@ export class ConsolePanel extends MainAreaWidget<Panel> {
       });
 
     const resolver = new RenderMimeRegistry.UrlResolver({
-      session: sessionContext,
+      path,
       contents: manager.contents
     });
     rendermime = rendermime.clone({ resolver });
@@ -83,13 +80,16 @@ export class ConsolePanel extends MainAreaWidget<Panel> {
       sessionContext: sessionContext,
       mimeTypeService,
       contentFactory,
-      modelFactory
+      modelFactory,
+      translator
     });
     this.content.addWidget(this.console);
 
     void sessionContext.initialize().then(async value => {
       if (value) {
-        await sessionContextDialogs.selectKernel(sessionContext!);
+        await (
+          options.sessionDialogs ?? new SessionContextDialogs({ translator })
+        ).selectKernel(sessionContext!);
       }
       this._connected = new Date();
       this._updateTitlePanel();
@@ -137,7 +137,7 @@ export class ConsolePanel extends MainAreaWidget<Panel> {
   protected onActivateRequest(msg: Message): void {
     const prompt = this.console.promptCell;
     if (prompt) {
-      prompt.editor.focus();
+      prompt.editor!.focus();
     }
   }
 
@@ -219,6 +219,11 @@ export namespace ConsolePanel {
     sessionContext?: ISessionContext;
 
     /**
+     * Session dialogs to use.
+     */
+    sessionDialogs?: ISessionContext.IDialogs;
+
+    /**
      * The model factory for the console widget.
      */
     modelFactory?: CodeConsole.IModelFactory;
@@ -254,7 +259,8 @@ export namespace ConsolePanel {
    */
   export class ContentFactory
     extends CodeConsole.ContentFactory
-    implements IContentFactory {
+    implements IContentFactory
+  {
     /**
      * Create a new console panel.
      */
@@ -274,18 +280,12 @@ export namespace ConsolePanel {
   }
 
   /**
-   * A default code console content factory.
-   */
-  export const defaultContentFactory: IContentFactory = new ContentFactory();
-
-  /* tslint:disable */
-  /**
    * The console renderer token.
    */
   export const IContentFactory = new Token<IContentFactory>(
-    '@jupyterlab/console:IContentFactory'
+    '@jupyterlab/console:IContentFactory',
+    'A factory object that creates new code consoles. Use this if you want to create and host code consoles in your own UI elements.'
   );
-  /* tslint:enable */
 }
 
 /**
@@ -305,7 +305,7 @@ namespace Private {
     connected: Date | null,
     executed: Date | null,
     translator?: ITranslator
-  ) {
+  ): void {
     translator = translator || nullTranslator;
     const trans = translator.load('jupyterlab');
 

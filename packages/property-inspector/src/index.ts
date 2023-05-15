@@ -6,21 +6,15 @@
  */
 
 import { ILabShell } from '@jupyterlab/application';
-
-import { ReactWidget } from '@jupyterlab/apputils';
-
 import {
-  nullTranslator,
   ITranslator,
+  nullTranslator,
   TranslationBundle
 } from '@jupyterlab/translation';
-
-import { Signal, ISignal } from '@lumino/signaling';
-
-import { Widget, FocusTracker, SingletonLayout } from '@lumino/widgets';
-
+import { ReactWidget } from '@jupyterlab/ui-components';
+import { ISignal, Signal } from '@lumino/signaling';
+import { FocusTracker, SingletonLayout, Widget } from '@lumino/widgets';
 import * as React from 'react';
-
 import { IPropertyInspector, IPropertyInspectorProvider } from './token';
 
 export { IPropertyInspector, IPropertyInspectorProvider };
@@ -30,7 +24,8 @@ export { IPropertyInspector, IPropertyInspectorProvider };
  */
 abstract class PropertyInspectorProvider
   extends Widget
-  implements IPropertyInspectorProvider {
+  implements IPropertyInspectorProvider
+{
   /**
    * Construct a new Property Inspector.
    */
@@ -151,6 +146,24 @@ abstract class PropertyInspectorProvider
 }
 
 /**
+ * {@link SideBarPropertyInspectorProvider} constructor options
+ */
+export interface ILabPropertyInspectorOptions {
+  /**
+   * Application shell
+   */
+  shell: ILabShell;
+  /**
+   * Widget placeholder
+   */
+  placeholder?: Widget;
+  /**
+   * Application translation
+   */
+  translator?: ITranslator;
+}
+
+/**
  * A class that adds a property inspector provider to the
  * JupyterLab sidebar.
  */
@@ -158,13 +171,13 @@ export class SideBarPropertyInspectorProvider extends PropertyInspectorProvider 
   /**
    * Construct a new Side Bar Property Inspector.
    */
-  constructor(
-    labshell: ILabShell,
-    placeholder?: Widget,
-    translator?: ITranslator
-  ) {
+  constructor({
+    shell,
+    placeholder,
+    translator
+  }: ILabPropertyInspectorOptions) {
     super();
-    this._labshell = labshell;
+    this._labshell = shell;
     this.translator = translator || nullTranslator;
     this._trans = this.translator.load('jupyterlab');
     const layout = (this.layout = new SingletonLayout());
@@ -180,7 +193,7 @@ export class SideBarPropertyInspectorProvider extends PropertyInspectorProvider 
       this._placeholder.addClass('jp-PropertyInspector-placeholder');
     }
     layout.widget = this._placeholder;
-    labshell.currentChanged.connect(this._onShellCurrentChanged, this);
+    this._labshell.currentChanged.connect(this._onShellCurrentChanged, this);
     this._onShellCurrentChanged();
   }
 
@@ -268,7 +281,7 @@ namespace Private {
     /**
      * Whether the property inspector is disposed.
      */
-    get isDisposed() {
+    get isDisposed(): boolean {
       return this._isDisposed;
     }
 

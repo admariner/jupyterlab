@@ -1,37 +1,25 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { MessageLoop, Message } from '@lumino/messaging';
-
-import { Widget } from '@lumino/widgets';
-
-import { simulate } from 'simulate-event';
-
-import { UUID } from '@lumino/coreutils';
-
-import { ServiceManager } from '@jupyterlab/services';
-
 import {
   CodeMirrorEditorFactory,
-  CodeMirrorMimeTypeService
+  CodeMirrorMimeTypeService,
+  EditorLanguageRegistry
 } from '@jupyterlab/codemirror';
-
 import {
   Context,
   DocumentRegistry,
-  TextModelFactory,
-  DocumentWidget
+  DocumentWidget,
+  TextModelFactory
 } from '@jupyterlab/docregistry';
-
-import {
-  FileEditor,
-  FileEditorCodeWrapper,
-  FileEditorFactory
-} from '@jupyterlab/fileeditor';
-
-import { framePromise } from '@jupyterlab/testutils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
+import { FileEditor, FileEditorFactory } from '@jupyterlab/fileeditor';
+import { ServiceManager } from '@jupyterlab/services';
+import { framePromise } from '@jupyterlab/testing';
+import { ServiceManagerMock } from '@jupyterlab/services/lib/testutils';
+import { UUID } from '@lumino/coreutils';
+import { Message, MessageLoop } from '@lumino/messaging';
+import { Widget } from '@lumino/widgets';
+import { simulate } from 'simulate-event';
 
 class LogFileEditor extends FileEditor {
   events: string[] = [];
@@ -62,50 +50,22 @@ class LogFileEditor extends FileEditor {
 describe('fileeditorcodewrapper', () => {
   const factoryService = new CodeMirrorEditorFactory();
   const modelFactory = new TextModelFactory();
-  const mimeTypeService = new CodeMirrorMimeTypeService();
+  const languages = (() => {
+    const registry = new EditorLanguageRegistry();
+    EditorLanguageRegistry.getDefaultLanguages()
+      .filter(language => ['Julia', 'Python'].includes(language.name))
+      .forEach(language => {
+        registry.addLanguage(language);
+      });
+    return registry;
+  })();
+  const mimeTypeService = new CodeMirrorMimeTypeService(languages);
   let context: Context<DocumentRegistry.ICodeModel>;
   let manager: ServiceManager.IManager;
 
   beforeAll(() => {
-    manager = new Mock.ServiceManagerMock();
+    manager = new ServiceManagerMock();
     return manager.ready;
-  });
-
-  describe('FileEditorCodeWrapper', () => {
-    let widget: FileEditorCodeWrapper;
-
-    beforeEach(() => {
-      const path = UUID.uuid4() + '.py';
-      context = new Context({ manager, factory: modelFactory, path });
-      widget = new FileEditorCodeWrapper({
-        factory: options => factoryService.newDocumentEditor(options),
-        mimeTypeService,
-        context
-      });
-    });
-
-    afterEach(() => {
-      widget.dispose();
-    });
-
-    describe('#constructor()', () => {
-      it('should create an editor wrapper widget', () => {
-        expect(widget).toBeInstanceOf(FileEditorCodeWrapper);
-      });
-
-      it('should update the editor text when the model changes', async () => {
-        await context.initialize(true);
-        await context.ready;
-        widget.context.model.fromString('foo');
-        expect(widget.editor.model.value.text).toBe('foo');
-      });
-    });
-
-    describe('#context', () => {
-      it('should be the context used by the widget', () => {
-        expect(widget.context).toBe(context);
-      });
-    });
   });
 
   describe('FileEditor', () => {
@@ -134,7 +94,7 @@ describe('fileeditorcodewrapper', () => {
         await context.initialize(true);
         await context.ready;
         widget.context.model.fromString('foo');
-        expect(widget.editor.model.value.text).toBe('foo');
+        expect(widget.editor.model.sharedModel.getSource()).toBe('foo');
       });
 
       it('should set the mime type for the path', () => {
@@ -207,6 +167,13 @@ describe('fileeditorcodewrapper', () => {
         expect(widget.methods).toContain('onActivateRequest');
         await framePromise();
         expect(widget.editor.hasFocus()).toBe(true);
+      });
+    });
+
+    describe('#ready', () => {
+      it('should resolve after initialization', async () => {
+        await context.initialize(true);
+        return expect(widget.ready).resolves.toBe(undefined);
       });
     });
   });

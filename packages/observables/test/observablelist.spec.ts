@@ -1,8 +1,6 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { toArray } from '@lumino/algorithm';
-
 import { ObservableList } from '@jupyterlab/observables';
 
 describe('@jupyterlab/observables', () => {
@@ -16,7 +14,7 @@ describe('@jupyterlab/observables', () => {
       it('should accept an array argument', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         expect(value instanceof ObservableList).toBe(true);
-        expect(toArray(value)).toEqual([1, 2, 3]);
+        expect(Array.from(value)).toEqual([1, 2, 3]);
       });
     });
 
@@ -83,7 +81,7 @@ describe('@jupyterlab/observables', () => {
       it('should set the item at a specific index', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.set(1, 4);
-        expect(toArray(value)).toEqual([1, 4, 3]);
+        expect(Array.from(value)).toEqual([1, 4, 3]);
       });
 
       it('should trigger a changed signal', () => {
@@ -107,7 +105,7 @@ describe('@jupyterlab/observables', () => {
       it('should add an item to the end of the list', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.push(4);
-        expect(toArray(value)).toEqual([1, 2, 3, 4]);
+        expect(Array.from(value)).toEqual([1, 2, 3, 4]);
       });
 
       it('should return the new length of the list', () => {
@@ -136,7 +134,7 @@ describe('@jupyterlab/observables', () => {
       it('should insert an item into the list at a specific index', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.insert(1, 4);
-        expect(toArray(value)).toEqual([1, 4, 2, 3]);
+        expect(Array.from(value)).toEqual([1, 4, 2, 3]);
       });
 
       it('should trigger a changed signal', () => {
@@ -146,7 +144,7 @@ describe('@jupyterlab/observables', () => {
           expect(sender).toBe(value);
           expect(args.type).toBe('add');
           expect(args.newIndex).toBe(1);
-          expect(args.oldIndex).toBe(-1);
+          expect(args.oldIndex).toBe(-2);
           expect(args.oldValues.length).toBe(0);
           expect(args.newValues[0]).toBe(4);
           called = true;
@@ -160,9 +158,9 @@ describe('@jupyterlab/observables', () => {
       it('should move an item from one index to another', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.move(1, 2);
-        expect(toArray(value)).toEqual([1, 3, 2]);
+        expect(Array.from(value)).toEqual([1, 3, 2]);
         value.move(2, 0);
-        expect(toArray(value)).toEqual([2, 1, 3]);
+        expect(Array.from(value)).toEqual([2, 1, 3]);
       });
 
       it('should trigger a changed signal', () => {
@@ -187,7 +185,7 @@ describe('@jupyterlab/observables', () => {
       it('should remove the first occurrence of a specific item from the list', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.removeValue(1);
-        expect(toArray(value)).toEqual([2, 3]);
+        expect(Array.from(value)).toEqual([2, 3]);
       });
 
       it('should return the index occupied by the item', () => {
@@ -222,7 +220,7 @@ describe('@jupyterlab/observables', () => {
       it('should remove the item at a specific index', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.remove(1);
-        expect(toArray(value)).toEqual([1, 3]);
+        expect(Array.from(value)).toEqual([1, 3]);
       });
 
       it('should return the item at the specified index', () => {
@@ -272,7 +270,7 @@ describe('@jupyterlab/observables', () => {
           expect(args.type).toBe('remove');
           expect(args.newIndex).toBe(0);
           expect(args.oldIndex).toBe(0);
-          expect(toArray(args.oldValues)).toEqual(values);
+          expect(Array.from(args.oldValues)).toEqual(values);
           expect(args.newValues.length).toBe(0);
           called = true;
         });
@@ -285,7 +283,7 @@ describe('@jupyterlab/observables', () => {
       it('should push an array of items to the end of the list', () => {
         const value = new ObservableList<number>({ values: [1] });
         value.pushAll([2, 3, 4]);
-        expect(toArray(value)).toEqual([1, 2, 3, 4]);
+        expect(Array.from(value)).toEqual([1, 2, 3, 4]);
       });
 
       it('should return the new length of the list', () => {
@@ -301,7 +299,7 @@ describe('@jupyterlab/observables', () => {
           expect(args.type).toBe('add');
           expect(args.newIndex).toBe(3);
           expect(args.oldIndex).toBe(-1);
-          expect(toArray(args.newValues)).toEqual([4, 5, 6]);
+          expect(Array.from(args.newValues)).toEqual([4, 5, 6]);
           expect(args.oldValues.length).toBe(0);
           called = true;
         });
@@ -314,7 +312,7 @@ describe('@jupyterlab/observables', () => {
       it('should push an array of items into a list', () => {
         const value = new ObservableList<number>({ values: [1, 2, 3] });
         value.insertAll(1, [2, 3, 4]);
-        expect(toArray(value)).toEqual([1, 2, 3, 4, 2, 3]);
+        expect(Array.from(value)).toEqual([1, 2, 3, 4, 2, 3]);
       });
 
       it('should trigger a changed signal', () => {
@@ -324,8 +322,8 @@ describe('@jupyterlab/observables', () => {
           expect(sender).toBe(value);
           expect(args.type).toBe('add');
           expect(args.newIndex).toBe(1);
-          expect(args.oldIndex).toBe(-1);
-          expect(toArray(args.newValues)).toEqual([4, 5, 6]);
+          expect(args.oldIndex).toBe(-2);
+          expect(Array.from(args.newValues)).toEqual([4, 5, 6]);
           expect(args.oldValues.length).toBe(0);
           called = true;
         });
@@ -339,7 +337,7 @@ describe('@jupyterlab/observables', () => {
         const values = [1, 2, 3, 4, 5, 6];
         const value = new ObservableList<number>({ values });
         value.removeRange(1, 3);
-        expect(toArray(value)).toEqual([1, 4, 5, 6]);
+        expect(Array.from(value)).toEqual([1, 4, 5, 6]);
       });
 
       it('should return the new length of the list', () => {
@@ -357,7 +355,7 @@ describe('@jupyterlab/observables', () => {
           expect(args.type).toBe('remove');
           expect(args.newIndex).toBe(-1);
           expect(args.oldIndex).toBe(1);
-          expect(toArray(args.oldValues)).toEqual([2, 3]);
+          expect(Array.from(args.oldValues)).toEqual([2, 3]);
           expect(args.newValues.length).toBe(0);
           called = true;
         });

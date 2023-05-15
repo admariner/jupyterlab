@@ -2,9 +2,9 @@
 
 Javascript client for the Jupyter services REST APIs
 
-[API Docs](http://jupyterlab.github.io/jupyterlab/)
+[API Docs](https://jupyterlab.readthedocs.io/en/latest/api/)
 
-[REST API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter/notebook/master/notebook/services/api/api.yaml)
+[REST API Docs](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml)
 
 Note: All functions and classes using the REST API allow a `serverSettings`
 parameter to configure requests.
@@ -101,7 +101,7 @@ See `examples/node` for an example of using an ES5 node script.
 
 ## Usage Examples
 
-**Note:** This package is compiled to ES2017 JavaScript syntax from
+**Note:** This package is compiled to ES2018 JavaScript syntax from
 TypeScript. Here are some examples of using parts of this package. See the
 other `examples` subdirectories for more examples.
 
@@ -163,7 +163,7 @@ connection status, etc.
 A _kernel manager_ is an object that maintains a list of kernel models by
 regular polling. The kernel manager can instantiate a kernel connection and
 will manage its lifecycle (e.g., when the kernel is shut down, the connections
-will be disposed). The manager provides some minimal bookkeepping around
+will be disposed). The manager provides some minimal bookkeeping around
 kernels and their connections. Generally, it is easiest to interact with
 kernels on a server through a manager.
 
@@ -206,7 +206,7 @@ session model to be deleted.
 A _session manager_ is an object that maintains a list of session models by
 regular polling. The session manager can instantiate a session connection and
 will manage its lifecycle (e.g., when the session is shut down, the connections
-will be disposed). The manager provides some minimal bookkeepping around
+will be disposed). The manager provides some minimal bookkeeping around
 sessions and their connections. Generally, it is easiest to interact with
 sessions on a server through a manager.
 

@@ -1,45 +1,24 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import encoding from 'text-encoding';
-
+import {
+  JSONObject,
+  JSONPrimitive,
+  PromiseDelegate,
+  UUID
+} from '@lumino/coreutils';
 import WebSocket from 'ws';
-
-import { UUID } from '@lumino/coreutils';
-
-import { JSONObject, JSONPrimitive, PromiseDelegate } from '@lumino/coreutils';
-
-import { Response } from 'node-fetch';
-
 import {
   Contents,
-  Terminal,
-  ServerConnection,
-  KernelManager,
-  SessionManager,
-  KernelMessage,
   Kernel,
-  Session
+  KernelManager,
+  KernelMessage,
+  ServerConnection,
+  Session,
+  SessionManager,
+  Terminal
 } from '../src';
-
 import { deserialize, serialize } from '../src/kernel/serialize';
-
-// stub for node global
-declare let global: any;
-
-/**
- * This can be used by test modules that wouldn't otherwise import
- * this file.
- */
-export function init() {
-  if (typeof global !== 'undefined') {
-    global.TextEncoder = encoding.TextEncoder;
-    global.TextDecoder = encoding.TextDecoder;
-  }
-}
-
-// Call init.
-init();
 
 /**
  * Create a set of server settings.
@@ -118,6 +97,7 @@ export const KERNELSPECS: JSONObject = {
  */
 export function getRequestHandler(
   status: number,
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   body: any
 ): ServerConnection.ISettings {
   const fetch = (info: RequestInfo, init: RequestInit) => {
@@ -141,7 +121,8 @@ export interface IService {
 /**
  * Handle a single request with a mock response.
  */
-export function handleRequest(item: IService, status: number, body: any) {
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function handleRequest(item: IService, status: number, body: any): void {
   // Store the existing fetch function.
   const oldFetch = item.serverSettings.fetch;
 
@@ -189,7 +170,13 @@ class SocketTester implements IService {
     for (let retry = 0; retry <= 5; retry++) {
       try {
         port = getRandomInt(9000, 20000);
-        this._server = new WebSocket.Server({ port });
+        this._server = new WebSocket.Server({
+          port,
+          handleProtocols: () => {
+            return KernelMessage.supportedKernelWebSocketProtocols
+              .v1KernelWebsocketJupyterOrg;
+          }
+        });
       } catch (err) {
         if (retry === 5) {
           throw err;
@@ -311,7 +298,7 @@ export class KernelTester extends SocketTester {
   /**
    * Send the status from the server to the client.
    */
-  sendStatus(msgId: string, status: Kernel.Status) {
+  sendStatus(msgId: string, status: Kernel.Status): string {
     return this.sendMessage({
       msgId,
       msgType: 'status',
@@ -323,7 +310,10 @@ export class KernelTester extends SocketTester {
   /**
    * Send an iopub stream message.
    */
-  sendStream(msgId: string, content: KernelMessage.IStreamMsg['content']) {
+  sendStream(
+    msgId: string,
+    content: KernelMessage.IStreamMsg['content']
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'stream',
@@ -338,7 +328,7 @@ export class KernelTester extends SocketTester {
   sendDisplayData(
     msgId: string,
     content: KernelMessage.IDisplayDataMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'display_data',
@@ -353,7 +343,7 @@ export class KernelTester extends SocketTester {
   sendUpdateDisplayData(
     msgId: string,
     content: KernelMessage.IUpdateDisplayDataMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'update_display_data',
@@ -364,7 +354,10 @@ export class KernelTester extends SocketTester {
   /**
    * Send an iopub comm open message.
    */
-  sendCommOpen(msgId: string, content: KernelMessage.ICommOpenMsg['content']) {
+  sendCommOpen(
+    msgId: string,
+    content: KernelMessage.ICommOpenMsg['content']
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'comm_open',
@@ -379,7 +372,7 @@ export class KernelTester extends SocketTester {
   sendCommClose(
     msgId: string,
     content: KernelMessage.ICommCloseMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'comm_close',
@@ -391,7 +384,10 @@ export class KernelTester extends SocketTester {
   /**
    * Send an iopub comm message.
    */
-  sendCommMsg(msgId: string, content: KernelMessage.ICommMsgMsg['content']) {
+  sendCommMsg(
+    msgId: string,
+    content: KernelMessage.ICommMsgMsg['content']
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'comm_msg',
@@ -403,7 +399,7 @@ export class KernelTester extends SocketTester {
   sendExecuteResult(
     msgId: string,
     content: KernelMessage.IExecuteResultMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'execute_result',
@@ -415,7 +411,7 @@ export class KernelTester extends SocketTester {
   sendExecuteReply(
     msgId: string,
     content: KernelMessage.IExecuteReplyMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'execute_reply',
@@ -427,7 +423,7 @@ export class KernelTester extends SocketTester {
   sendKernelInfoReply(
     msgId: string,
     content: KernelMessage.IInfoReplyMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'kernel_info_reply',
@@ -439,7 +435,7 @@ export class KernelTester extends SocketTester {
   sendInputRequest(
     msgId: string,
     content: KernelMessage.IInputRequestMsg['content']
-  ) {
+  ): string {
     return this.sendMessage({
       msgId,
       msgType: 'input_request',
@@ -453,7 +449,7 @@ export class KernelTester extends SocketTester {
    */
   sendMessage<T extends KernelMessage.Message>(
     options: MakeOptional<KernelMessage.IOptions<T>, 'session'>
-  ) {
+  ): string {
     const msg = KernelMessage.createMessage<any>({
       session: this.serverSessionId,
       ...options
@@ -464,10 +460,16 @@ export class KernelTester extends SocketTester {
   }
 
   /**
-   * Send a kernel message from the server to the client.
+   * Send a kernel message from the server to the client with newest protocol.
    */
   send(msg: KernelMessage.Message): void {
-    this.sendRaw(serialize(msg));
+    this.sendRaw(
+      serialize(
+        msg,
+        KernelMessage.supportedKernelWebSocketProtocols
+          .v1KernelWebsocketJupyterOrg
+      )
+    );
   }
 
   /**
@@ -512,7 +514,7 @@ export class KernelTester extends SocketTester {
   /**
    * Dispose the tester.
    */
-  dispose() {
+  dispose(): void {
     if (this._kernel) {
       this._kernel.dispose();
       this._kernel = null;
@@ -522,6 +524,7 @@ export class KernelTester extends SocketTester {
 
   /**
    * Set up a new server websocket to pretend like it is a server kernel.
+   * Use the newest protocol.
    */
   protected onSocket(sock: WebSocket): void {
     super.onSocket(sock);
@@ -530,7 +533,11 @@ export class KernelTester extends SocketTester {
       if (msg instanceof Buffer) {
         msg = new Uint8Array(msg).buffer;
       }
-      const data = deserialize(msg);
+      const data = deserialize(
+        msg,
+        KernelMessage.supportedKernelWebSocketProtocols
+          .v1KernelWebsocketJupyterOrg
+      );
       if (data.header.msg_type === 'kernel_info_request') {
         // First send status busy message.
         this.parentHeader = data.header;
@@ -620,7 +627,10 @@ export class SessionTester extends SocketTester {
   /**
    * Send the status from the server to the client.
    */
-  sendStatus(status: Kernel.Status, parentHeader?: KernelMessage.IHeader) {
+  sendStatus(
+    status: Kernel.Status,
+    parentHeader?: KernelMessage.IHeader
+  ): void {
     const msg = KernelMessage.createMessage({
       msgType: 'status',
       channel: 'iopub',
@@ -636,10 +646,16 @@ export class SessionTester extends SocketTester {
   }
 
   /**
-   * Send a kernel message from the server to the client.
+   * Send a kernel message from the server to the client with newest protocol.
    */
   send(msg: KernelMessage.IMessage): void {
-    this.sendRaw(serialize(msg));
+    this.sendRaw(
+      serialize(
+        msg,
+        KernelMessage.supportedKernelWebSocketProtocols
+          .v1KernelWebsocketJupyterOrg
+      )
+    );
   }
 
   /**
@@ -651,6 +667,7 @@ export class SessionTester extends SocketTester {
 
   /**
    * Set up a new server websocket to pretend like it is a server kernel.
+   * Use the newest protocol.
    */
   protected onSocket(sock: WebSocket): void {
     super.onSocket(sock);
@@ -658,7 +675,11 @@ export class SessionTester extends SocketTester {
       if (msg instanceof Buffer) {
         msg = new Uint8Array(msg).buffer;
       }
-      const data = deserialize(msg);
+      const data = deserialize(
+        msg,
+        KernelMessage.supportedKernelWebSocketProtocols
+          .v1KernelWebsocketJupyterOrg
+      );
       if (KernelMessage.isInfoRequestMsg(data)) {
         // First send status busy message.
         this.sendStatus('busy', data.header);
@@ -697,7 +718,7 @@ export class TerminalTester extends SocketTester {
   /**
    * Register the message callback with the websocket server.
    */
-  onMessage(cb: (msg: Terminal.IMessage) => void) {
+  onMessage(cb: (msg: Terminal.IMessage) => void): void {
     this._onMessage = cb;
   }
 
@@ -729,5 +750,6 @@ export class TerminalTester extends SocketTester {
  * type B = MakeOptional<A, 'a'>
  * const x: B = {b: 'test'}
  */
-type MakeOptional<T, K> = Pick<T, Exclude<keyof T, K>> &
-  { [P in Extract<keyof T, K>]?: T[P] };
+type MakeOptional<T, K> = Pick<T, Exclude<keyof T, K>> & {
+  [P in Extract<keyof T, K>]?: T[P];
+};

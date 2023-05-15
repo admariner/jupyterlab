@@ -3,7 +3,6 @@
 | Distributed under the terms of the Modified BSD License.
 |----------------------------------------------------------------------------*/
 import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
-
 import * as widgets from './widgets';
 
 /**
@@ -21,7 +20,13 @@ export const htmlRendererFactory: IRenderMime.IRendererFactory = {
  */
 export const imageRendererFactory: IRenderMime.IRendererFactory = {
   safe: true,
-  mimeTypes: ['image/bmp', 'image/png', 'image/jpeg', 'image/gif'],
+  mimeTypes: [
+    'image/bmp',
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp'
+  ],
   defaultRank: 90,
   createRenderer: options => new widgets.RenderedImage(options)
 };
@@ -83,12 +88,13 @@ export const javaScriptRendererFactory: IRenderMime.IRendererFactory = {
 /**
  * The standard factories provided by the rendermime package.
  */
-export const standardRendererFactories: ReadonlyArray<IRenderMime.IRendererFactory> = [
-  htmlRendererFactory,
-  markdownRendererFactory,
-  latexRendererFactory,
-  svgRendererFactory,
-  imageRendererFactory,
-  javaScriptRendererFactory,
-  textRendererFactory
-];
+export const standardRendererFactories: ReadonlyArray<IRenderMime.IRendererFactory> =
+  [
+    htmlRendererFactory,
+    markdownRendererFactory,
+    latexRendererFactory,
+    svgRendererFactory,
+    imageRendererFactory,
+    javaScriptRendererFactory,
+    textRendererFactory
+  ];

@@ -1,21 +1,17 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
+import { createSimpleSessionContext } from '@jupyterlab/docregistry/lib/testutils';
+import { ServiceManagerMock } from '@jupyterlab/services/lib/testutils';
+import { CodeConsole, ConsolePanel } from '@jupyterlab/console';
+import { dismissDialog } from '@jupyterlab/testing';
 import { Message, MessageLoop } from '@lumino/messaging';
-
 import { Widget } from '@lumino/widgets';
-
-import { CodeConsole, ConsolePanel } from '../src';
-
-import { dismissDialog } from '@jupyterlab/testutils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
-
 import {
   createConsolePanelFactory,
-  rendermime,
+  editorFactory,
   mimeTypeService,
-  editorFactory
+  rendermime
 } from './utils';
 
 class TestPanel extends ConsolePanel {
@@ -36,7 +32,7 @@ const contentFactory = createConsolePanelFactory();
 
 describe('console/panel', () => {
   let panel: TestPanel;
-  const manager = new Mock.ServiceManagerMock();
+  const manager = new ServiceManagerMock();
 
   beforeAll(async () => {
     return await manager.ready;
@@ -48,7 +44,7 @@ describe('console/panel', () => {
       contentFactory,
       rendermime,
       mimeTypeService,
-      sessionContext: Mock.createSimpleSessionContext()
+      sessionContext: createSimpleSessionContext()
     });
   });
 
@@ -91,7 +87,9 @@ describe('console/panel', () => {
       it('should start the session', async () => {
         Widget.attach(panel, document.body);
         await panel.sessionContext.ready;
-        await panel.sessionContext.session!.kernel!.info;
+        await expect(
+          panel.sessionContext.session!.kernel!.info
+        ).resolves.not.toThrow();
       });
     });
 
@@ -99,7 +97,7 @@ describe('console/panel', () => {
       it('should give the focus to the console prompt', () => {
         Widget.attach(panel, document.body);
         MessageLoop.sendMessage(panel, Widget.Msg.ActivateRequest);
-        expect(panel.console.promptCell!.editor.hasFocus()).toBe(true);
+        expect(panel.console.promptCell!.editor!.hasFocus()).toBe(true);
         return dismissDialog();
       });
     });

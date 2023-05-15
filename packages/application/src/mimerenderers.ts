@@ -2,27 +2,19 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { IWidgetTracker, WidgetTracker } from '@jupyterlab/apputils';
-
 import {
-  MimeDocumentFactory,
   DocumentRegistry,
-  MimeDocument
+  MimeDocument,
+  MimeDocumentFactory
 } from '@jupyterlab/docregistry';
-
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-
 import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
-
-import { LabIcon } from '@jupyterlab/ui-components';
-
-import { Token } from '@lumino/coreutils';
-
-import { AttachedProperty } from '@lumino/properties';
-
-import { JupyterFrontEnd, JupyterFrontEndPlugin } from './index';
-
-import { ILayoutRestorer } from './layoutrestorer';
 import { ITranslator } from '@jupyterlab/translation';
+import { LabIcon } from '@jupyterlab/ui-components';
+import { Token } from '@lumino/coreutils';
+import { AttachedProperty } from '@lumino/properties';
+import { JupyterFrontEnd, JupyterFrontEndPlugin } from './index';
+import { ILayoutRestorer } from './layoutrestorer';
 
 /**
  * A class that tracks mime documents.
@@ -33,7 +25,8 @@ export interface IMimeDocumentTracker extends IWidgetTracker<MimeDocument> {}
  * The mime document tracker token.
  */
 export const IMimeDocumentTracker = new Token<IMimeDocumentTracker>(
-  '@jupyterlab/application:IMimeDocumentTracker'
+  '@jupyterlab/application:IMimeDocumentTracker',
+  'A widget tracker for documents rendered using a mime renderer extension. Use this if you want to list and interact with documents rendered by such extensions.'
 );
 
 /**
@@ -66,6 +59,7 @@ export function createRendermimePlugins(
   // and exposing the mime document widget tracker.
   plugins.push({
     id: '@jupyterlab/application:mimedocument',
+    description: 'Provides a mime document widget tracker.',
     optional: [ILayoutRestorer],
     provides: IMimeDocumentTracker,
     autoStart: true,
@@ -97,6 +91,7 @@ export function createRendermimePlugin(
 ): JupyterFrontEndPlugin<void> {
   return {
     id: item.id,
+    description: item.description,
     requires: [IRenderMimeRegistry, ITranslator],
     autoStart: true,
     activate: (

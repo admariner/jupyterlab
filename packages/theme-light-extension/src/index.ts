@@ -9,9 +9,7 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
 import { IThemeManager } from '@jupyterlab/apputils';
-
 import { ITranslator } from '@jupyterlab/translation';
 
 /**
@@ -19,6 +17,7 @@ import { ITranslator } from '@jupyterlab/translation';
  */
 const plugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/theme-light-extension:plugin',
+  description: 'Adds a light theme.',
   requires: [IThemeManager, ITranslator],
   activate: (
     app: JupyterFrontEnd,

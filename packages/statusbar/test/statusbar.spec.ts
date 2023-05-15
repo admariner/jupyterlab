@@ -1,11 +1,9 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { Signal } from '@lumino/signaling';
-
-import { Widget } from '@lumino/widgets';
-
 import { StatusBar } from '@jupyterlab/statusbar';
+import { Signal } from '@lumino/signaling';
+import { Widget } from '@lumino/widgets';
 
 describe('@jupyterlab/statusbar', () => {
   describe('StatusBar', () => {
@@ -43,7 +41,7 @@ describe('@jupyterlab/statusbar', () => {
         statusBar.registerStatusItem('item', { item: item1 });
         expect(
           statusBar.registerStatusItem.bind(statusBar, 'item', { item: item2 })
-        ).toThrowError();
+        ).toThrow();
       });
 
       it('should put higher rank left items closer to the middle', () => {

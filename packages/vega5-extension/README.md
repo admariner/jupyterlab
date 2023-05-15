@@ -4,9 +4,7 @@ A JupyterLab extension for rendering [Vega](https://vega.github.io/vega) 5 and [
 
 ![demo](http://g.recordit.co/USoTkuCOfR.gif)
 
-## Prerequisites
-
-- JupyterLab ^0.27.0
+This extension is in the official JupyterLab distribution.
 
 ## Usage
 
@@ -74,7 +72,7 @@ display({
         }
     }
 }, metadata={
-    "application/vnd.vegalite.v2+json": {
+    "application/vnd.vegalite.v3+json": {
         "embed_options": {
             "actions": False
         }

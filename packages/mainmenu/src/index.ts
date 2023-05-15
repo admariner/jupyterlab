@@ -6,7 +6,6 @@
  */
 
 export * from './mainmenu';
-export * from './labmenu';
 export * from './edit';
 export * from './file';
 export * from './help';

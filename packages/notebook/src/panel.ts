@@ -1,32 +1,25 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { isMarkdownCellModel } from '@jupyterlab/cells';
-
-import { Kernel, KernelMessage, Session } from '@jupyterlab/services';
-
-import { each } from '@lumino/algorithm';
-
-import { Token } from '@lumino/coreutils';
-
 import {
+  Dialog,
   ISessionContext,
   Printing,
-  showDialog,
-  Dialog
+  showDialog
 } from '@jupyterlab/apputils';
-
-import { DocumentWidget, DocumentRegistry } from '@jupyterlab/docregistry';
-
-import { INotebookModel } from './model';
-
-import { Notebook, StaticNotebook } from './widget';
+import { isMarkdownCellModel } from '@jupyterlab/cells';
 import { PageConfig } from '@jupyterlab/coreutils';
+import { DocumentRegistry, DocumentWidget } from '@jupyterlab/docregistry';
+import { Kernel, KernelMessage, Session } from '@jupyterlab/services';
 import {
-  nullTranslator,
   ITranslator,
+  nullTranslator,
   TranslationBundle
 } from '@jupyterlab/translation';
+import { Token } from '@lumino/coreutils';
+import { INotebookModel } from './model';
+import { Notebook, StaticNotebook } from './widget';
+import { Message } from '@lumino/messaging';
 
 /**
  * The class name added to notebook panels.
@@ -68,6 +61,7 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
       this._onSessionStatusChanged,
       this
     );
+    // this.content.fullyRendered.connect(this._onFullyRendered, this);
     this.context.saveState.connect(this._onSave, this);
     void this.revealed.then(() => {
       if (this.isDisposed) {
@@ -78,39 +72,37 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
       // Set the document edit mode on initial open if it looks like a new document.
       if (this.content.widgets.length === 1) {
         const cellModel = this.content.widgets[0].model;
-        if (cellModel.type === 'code' && cellModel.value.text === '') {
+        if (
+          cellModel.type === 'code' &&
+          cellModel.sharedModel.getSource() === ''
+        ) {
           this.content.mode = 'edit';
         }
       }
     });
   }
 
-  _onSave(sender: DocumentRegistry.Context, state: DocumentRegistry.SaveState) {
+  /**
+   * Handle a change to the document registry save state.
+   *
+   * @param sender The document registry context
+   * @param state The document registry save state
+   */
+  private _onSave(
+    sender: DocumentRegistry.Context,
+    state: DocumentRegistry.SaveState
+  ): void {
     if (state === 'started' && this.model) {
       // Find markdown cells
-      const { cells } = this.model;
-      each(cells, cell => {
+      for (const cell of this.model.cells) {
         if (isMarkdownCellModel(cell)) {
           for (const key of cell.attachments.keys) {
-            if (!cell.value.text.includes(key)) {
+            if (!cell.sharedModel.getSource().includes(key)) {
               cell.attachments.remove(key);
             }
           }
         }
-      });
-    }
-
-    const model = sender.contentsModel;
-    /* emits shouldNameFile signal 
-       when save is completed, file is not renamed and the name starts with 'Untitled'
-    */
-    if (
-      state === 'completed-manual' &&
-      model &&
-      !model.renamed == true &&
-      model.name.startsWith('Untitled')
-    ) {
-      this.shouldNameFile.emit(undefined);
+      }
     }
   }
 
@@ -140,16 +132,17 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
     const kernelPreference = this.context.sessionContext.kernelPreference;
     this.context.sessionContext.kernelPreference = {
       ...kernelPreference,
-      shutdownOnDispose: config.kernelShutdown
+      shutdownOnDispose: config.kernelShutdown,
+      autoStartDefault: config.autoStartDefault
     };
   }
 
   /**
    * Set URI fragment identifier.
    */
-  setFragment(fragment: string) {
+  setFragment(fragment: string): void {
     void this.context.ready.then(() => {
-      this.content.setFragment(fragment);
+      void this.content.setFragment(fragment);
     });
   }
 
@@ -165,7 +158,7 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
    * Prints the notebook by converting to HTML with nbconvert.
    */
   [Printing.symbol]() {
-    return async () => {
+    return async (): Promise<void> => {
       // Save before generating HTML
       if (this.context.model.dirty && !this.context.model.readOnly) {
         await this.context.save();
@@ -179,6 +172,26 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
         })
       );
     };
+  }
+
+  /**
+   * A message handler invoked on a 'before-hide' message.
+   */
+  protected onBeforeHide(msg: Message): void {
+    super.onBeforeHide(msg);
+    // Inform the windowed list that the notebook is gonna be hidden
+    this.content.isParentHidden = true;
+  }
+
+  /**
+   * A message handler invoked on a 'before-show' message.
+   */
+  protected onBeforeShow(msg: Message): void {
+    // Inform the windowed list that the notebook is gonna be shown
+    // Use onBeforeShow instead of onAfterShow to take into account
+    // resizing (like sidebars got expanded before switching to the notebook tab)
+    this.content.isParentHidden = false;
+    super.onBeforeShow(msg);
   }
 
   /**
@@ -235,7 +248,7 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
    * Update the kernel language.
    */
   private _updateLanguage(language: KernelMessage.ILanguageInfo): void {
-    this.model!.metadata.set('language_info', language);
+    this.model!.setMetadata('language_info', language);
   }
 
   /**
@@ -246,7 +259,7 @@ export class NotebookPanel extends DocumentWidget<Notebook, INotebookModel> {
     if (this.isDisposed) {
       return;
     }
-    this.model!.metadata.set('kernelspec', {
+    this.model!.setMetadata('kernelspec', {
       name: kernel.name,
       display_name: spec?.display_name,
       language: spec?.language
@@ -270,6 +283,10 @@ export namespace NotebookPanel {
    * Notebook config interface for NotebookPanel
    */
   export interface IConfig {
+    /**
+     * Whether to automatically start the preferred kernel
+     */
+    autoStartDefault: boolean;
     /**
      * A config object for cell editors
      */
@@ -299,7 +316,8 @@ export namespace NotebookPanel {
    */
   export class ContentFactory
     extends Notebook.ContentFactory
-    implements IContentFactory {
+    implements IContentFactory
+  {
     /**
      * Create a new content area for the panel.
      */
@@ -309,16 +327,11 @@ export namespace NotebookPanel {
   }
 
   /**
-   * Default content factory for the notebook panel.
-   */
-  export const defaultContentFactory: ContentFactory = new ContentFactory();
-
-  /* tslint:disable */
-  /**
    * The notebook renderer token.
    */
   export const IContentFactory = new Token<IContentFactory>(
-    '@jupyterlab/notebook:IContentFactory'
+    '@jupyterlab/notebook:IContentFactory',
+    `A factory object that creates new notebooks.
+    Use this if you want to create and host notebooks in your own UI elements.`
   );
-  /* tslint:enable */
 }

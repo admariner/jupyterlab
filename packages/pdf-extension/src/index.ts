@@ -6,11 +6,8 @@
  */
 
 import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
-
 import { PromiseDelegate } from '@lumino/coreutils';
-
 import { DisposableDelegate } from '@lumino/disposable';
-
 import { Widget } from '@lumino/widgets';
 
 /**
@@ -111,7 +108,7 @@ export class RenderedPDF extends Widget implements IRenderMime.IRenderer {
   /**
    * Dispose of the resources held by the pdf widget.
    */
-  dispose() {
+  dispose(): void {
     if (this._disposable) {
       this._disposable.dispose();
     }
@@ -137,10 +134,12 @@ export const rendererFactory: IRenderMime.IRendererFactory = {
 const extensions: IRenderMime.IExtension | IRenderMime.IExtension[] = [
   {
     id: '@jupyterlab/pdf-extension:factory',
+    description: 'Adds renderer for PDF content.',
     rendererFactory,
     dataType: 'string',
     documentWidgetFactoryOptions: {
       name: 'PDF',
+      // TODO: translate label
       modelName: 'base64',
       primaryFileType: 'PDF',
       fileTypes: ['PDF'],

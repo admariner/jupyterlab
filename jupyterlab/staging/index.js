@@ -1,28 +1,10 @@
 // This file is auto-generated from the corresponding file in /dev_mode
-/*-----------------------------------------------------------------------------
-| Copyright (c) Jupyter Development Team.
-| Distributed under the terms of the Modified BSD License.
-|----------------------------------------------------------------------------*/
+/*
+ * Copyright (c) Jupyter Development Team.
+ * Distributed under the terms of the Modified BSD License.
+ */
 
 import { PageConfig } from '@jupyterlab/coreutils';
-
-// Promise.allSettled polyfill, until our supported browsers implement it
-// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled
-if (Promise.allSettled === undefined) {
-  Promise.allSettled = promises =>
-    Promise.all(
-      promises.map(promise =>
-        promise
-          .then(value => ({
-            status: "fulfilled",
-            value,
-          }), reason => ({
-            status: "rejected",
-            reason,
-          }))
-      )
-    );
-}
 
 import './style.js';
 
@@ -99,7 +81,8 @@ export async function main() {
       queuedFederated.push(data.name);
       federatedMimeExtensionPromises.push(createModule(data.name, data.mimeExtension));
     }
-    if (data.style) {
+
+    if (data.style && !PageConfig.Extension.isDisabled(data.name)) {
       federatedStylePromises.push(createModule(data.name, data.style));
     }
   });
@@ -213,7 +196,7 @@ export async function main() {
   var devMode = (PageConfig.getOption('devMode') || '').toLowerCase() === 'true';
 
   if (exposeAppInBrowser || devMode) {
-    window.jupyterlab = lab;
+    window.jupyterapp = lab;
   }
 
   // Handle a browser test.

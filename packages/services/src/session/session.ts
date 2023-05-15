@@ -1,8 +1,6 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { IIterator } from '@lumino/algorithm';
-
 import { IDisposable, IObservableDisposable } from '@lumino/disposable';
 
 import { ISignal } from '@lumino/signaling';
@@ -54,6 +52,12 @@ export interface ISessionConnection extends IObservableDisposable {
    * kernel.
    */
   connectionStatusChanged: ISignal<this, Kernel.ConnectionStatus>;
+
+  /**
+   * The kernel pendingInput signal, proxied from the current
+   * kernel.
+   */
+  pendingInput: ISignal<this, boolean>;
 
   /**
    * The kernel iopubMessage signal, proxied from the current kernel.
@@ -265,7 +269,7 @@ export interface IManager extends IDisposable {
    *
    * @returns A new iterator over the running sessions.
    */
-  running(): IIterator<IModel>;
+  running(): IterableIterator<IModel>;
 
   /**
    * Start a new session.
@@ -363,7 +367,7 @@ export interface IManager extends IDisposable {
  * The session model returned by the server.
  *
  * #### Notes
- * See the [Jupyter Notebook API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter/notebook/master/notebook/services/api/api.yaml#!/sessions).
+ * See the [Jupyter Notebook API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/sessions).
  */
 export interface IModel {
   /**
@@ -384,7 +388,7 @@ export interface IModel {
  * parameter is not technically required, but is often assumed to be nonempty,
  * so we require it too.
  *
- * See the [Jupyter Notebook API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter/notebook/master/notebook/services/api/api.yaml#!/sessions).
+ * See the [Jupyter Notebook API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/sessions).
  */
 export type ISessionOptions = Pick<IModel, 'path' | 'type' | 'name'> & {
   kernel?: Partial<Pick<Kernel.IModel, 'name'>>;

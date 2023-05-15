@@ -7,19 +7,15 @@
  * @module hub-extension
  */
 
-import { Dialog, ICommandPalette, showDialog } from '@jupyterlab/apputils';
-
 import {
   ConnectionLost,
   IConnectionLost,
   JupyterFrontEnd,
-  JupyterFrontEndPlugin
+  JupyterFrontEndPlugin,
+  JupyterLab
 } from '@jupyterlab/application';
-
+import { Dialog, ICommandPalette, showDialog } from '@jupyterlab/apputils';
 import { URLExt } from '@jupyterlab/coreutils';
-
-import { IMainMenu } from '@jupyterlab/mainmenu';
-
 import { ServerConnection, ServiceManager } from '@jupyterlab/services';
 import { ITranslator } from '@jupyterlab/translation';
 
@@ -41,8 +37,7 @@ function activateHubExtension(
   app: JupyterFrontEnd,
   paths: JupyterFrontEnd.IPaths,
   translator: ITranslator,
-  palette: ICommandPalette | null,
-  mainMenu: IMainMenu | null
+  palette: ICommandPalette | null
 ): void {
   const trans = translator.load('jupyterlab');
   const hubHost = paths.urls.hubHost || '';
@@ -92,13 +87,7 @@ function activateHubExtension(
     }
   });
 
-  // Add palette and menu itmes.
-  if (mainMenu) {
-    mainMenu.fileMenu.addGroup(
-      [{ command: CommandIDs.controlPanel }, { command: CommandIDs.logout }],
-      100
-    );
-  }
+  // Add palette items.
   if (palette) {
     const category = trans.__('Hub');
     palette.addItem({ category, command: CommandIDs.controlPanel });
@@ -111,9 +100,20 @@ function activateHubExtension(
  */
 const hubExtension: JupyterFrontEndPlugin<void> = {
   activate: activateHubExtension,
-  id: 'jupyter.extensions.hub-extension',
+  id: '@jupyterlab/hub-extension:plugin',
+  description: 'Registers commands related to the hub server',
   requires: [JupyterFrontEnd.IPaths, ITranslator],
-  optional: [ICommandPalette, IMainMenu],
+  optional: [ICommandPalette],
+  autoStart: true
+};
+
+/**
+ * Plugin to load menu description based on settings file
+ */
+const hubExtensionMenu: JupyterFrontEndPlugin<void> = {
+  activate: () => void 0,
+  id: '@jupyterlab/hub-extension:menu',
+  description: 'Adds hub related commands to the menu.',
   autoStart: true
 };
 
@@ -126,12 +126,16 @@ const hubExtension: JupyterFrontEndPlugin<void> = {
  * Otherwise, it shows an error dialog.
  */
 const connectionlost: JupyterFrontEndPlugin<IConnectionLost> = {
-  id: '@jupyterlab/apputils-extension:connectionlost',
+  id: '@jupyterlab/hub-extension:connectionlost',
+  description:
+    'Provides a service to be notified when the connection to the hub server is lost.',
   requires: [JupyterFrontEnd.IPaths, ITranslator],
+  optional: [JupyterLab.IInfo],
   activate: (
     app: JupyterFrontEnd,
     paths: JupyterFrontEnd.IPaths,
-    translator: ITranslator
+    translator: ITranslator,
+    info: JupyterLab.IInfo | null
   ): IConnectionLost => {
     const trans = translator.load('jupyterlab');
     const hubPrefix = paths.urls.hubPrefix || '';
@@ -152,7 +156,12 @@ const connectionlost: JupyterFrontEndPlugin<IConnectionLost> = {
       if (showingError) {
         return;
       }
+
       showingError = true;
+      if (info) {
+        info.isConnected = false;
+      }
+
       const result = await showDialog({
         title: trans.__('Server unavailable or unreachable'),
         body: trans.__(
@@ -164,7 +173,12 @@ const connectionlost: JupyterFrontEndPlugin<IConnectionLost> = {
           Dialog.cancelButton({ label: trans.__('Dismiss') })
         ]
       });
+
+      if (info) {
+        info.isConnected = true;
+      }
       showingError = false;
+
       if (result.button.accept) {
         await app.commands.execute(CommandIDs.restart);
       }
@@ -175,4 +189,8 @@ const connectionlost: JupyterFrontEndPlugin<IConnectionLost> = {
   provides: IConnectionLost
 };
 
-export default [hubExtension, connectionlost] as JupyterFrontEndPlugin<any>[];
+export default [
+  hubExtension,
+  hubExtensionMenu,
+  connectionlost
+] as JupyterFrontEndPlugin<any>[];

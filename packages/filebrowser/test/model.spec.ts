@@ -1,38 +1,31 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import expect from 'expect';
-
 import { PageConfig } from '@jupyterlab/coreutils';
-
 import { DocumentManager, IDocumentManager } from '@jupyterlab/docmanager';
-
 import { DocumentRegistry, TextModelFactory } from '@jupyterlab/docregistry';
-
+import { DocumentWidgetOpenerMock } from '@jupyterlab/docregistry/lib/testutils';
 import { Contents, ServiceManager } from '@jupyterlab/services';
-
 import { StateDB } from '@jupyterlab/statedb';
-
 import {
   acceptDialog,
   dismissDialog,
   signalToPromises,
   sleep
-} from '@jupyterlab/testutils';
-
-import * as Mock from '@jupyterlab/testutils/lib/mock';
-
-import { toArray } from '@lumino/algorithm';
-
+} from '@jupyterlab/testing';
+import {
+  ContentsManagerMock,
+  ServiceManagerMock
+} from '@jupyterlab/services/lib/testutils';
 import { UUID } from '@lumino/coreutils';
-
-import { FileBrowserModel, CHUNK_SIZE, LARGE_FILE_SIZE } from '../src';
+import expect from 'expect';
+import { CHUNK_SIZE, FileBrowserModel, LARGE_FILE_SIZE } from '../src';
 
 /**
  * A contents manager that delays requests by less each time it is called
  * in order to simulate out-of-order responses from the server.
  */
-class DelayedContentsManager extends Mock.ContentsManagerMock {
+class DelayedContentsManager extends ContentsManagerMock {
   get(
     path: string,
     options?: Contents.IFetchOptions
@@ -60,17 +53,13 @@ describe('filebrowser/model', () => {
   let subDir: string;
   let subSubDir: string;
   let state: StateDB;
-  const opener: DocumentManager.IWidgetOpener = {
-    open: widget => {
-      /* no op */
-    }
-  };
+  const opener = new DocumentWidgetOpenerMock();
 
   beforeAll(() => {
     registry = new DocumentRegistry({
       textModelFactory: new TextModelFactory()
     });
-    serviceManager = new Mock.ServiceManagerMock();
+    serviceManager = new ServiceManagerMock();
     manager = new DocumentManager({
       registry,
       opener,
@@ -206,7 +195,7 @@ describe('filebrowser/model', () => {
     describe('#items()', () => {
       it('should get an iterator of items in the current path', () => {
         const items = model.items();
-        expect(items.next()).toBeTruthy();
+        expect(!items.next().done).toBe(true);
       });
     });
 
@@ -227,7 +216,7 @@ describe('filebrowser/model', () => {
           type: 'test'
         });
         await model.cd();
-        expect(model.sessions().next()).toBeTruthy();
+        expect(!model.sessions().next().done).toBe(true);
         await session.shutdown();
       });
     });
@@ -246,8 +235,8 @@ describe('filebrowser/model', () => {
     });
 
     describe('#refresh()', () => {
-      it('should refresh the contents', () => {
-        return model.refresh();
+      it('should refresh the contents', async () => {
+        await expect(model.refresh()).resolves.not.toThrow();
       });
     });
 
@@ -274,7 +263,7 @@ describe('filebrowser/model', () => {
       });
 
       it('should be resilient to a slow initial fetch', async () => {
-        const delayedServiceManager = new Mock.ServiceManagerMock();
+        const delayedServiceManager = new ServiceManagerMock();
         (delayedServiceManager as any).contents = new DelayedContentsManager();
         const contents = await delayedServiceManager.contents.newUntitled({
           type: 'directory'
@@ -331,7 +320,7 @@ describe('filebrowser/model', () => {
     });
 
     describe('#download()', () => {
-      it('should download the file without error', () => {
+      it.skip('should download the file without error', () => {
         // TODO: how to test this?
       });
     });
@@ -462,7 +451,7 @@ describe('filebrowser/model', () => {
           );
 
           const uploaded = model.upload(file);
-          expect(toArray(model.uploads())).toEqual([]);
+          expect(Array.from(model.uploads())).toEqual([]);
           expect(await start).toEqual([
             model,
             {
@@ -471,7 +460,7 @@ describe('filebrowser/model', () => {
               newValue: { path: fname, progress: 0 }
             }
           ]);
-          expect(toArray(model.uploads())).toEqual([
+          expect(Array.from(model.uploads())).toEqual([
             { path: fname, progress: 0 }
           ]);
           expect(await first).toEqual([
@@ -482,7 +471,7 @@ describe('filebrowser/model', () => {
               newValue: { path: fname, progress: 0 }
             }
           ]);
-          expect(toArray(model.uploads())).toEqual([
+          expect(Array.from(model.uploads())).toEqual([
             { path: fname, progress: 0 }
           ]);
           expect(await second).toEqual([
@@ -493,7 +482,7 @@ describe('filebrowser/model', () => {
               newValue: { path: fname, progress: 1 / 2 }
             }
           ]);
-          expect(toArray(model.uploads())).toEqual([
+          expect(Array.from(model.uploads())).toEqual([
             { path: fname, progress: 1 / 2 }
           ]);
           expect(await finished).toEqual([
@@ -504,7 +493,7 @@ describe('filebrowser/model', () => {
               newValue: null
             }
           ]);
-          expect(toArray(model.uploads())).toEqual([]);
+          expect(Array.from(model.uploads())).toEqual([]);
           await uploaded;
         });
 

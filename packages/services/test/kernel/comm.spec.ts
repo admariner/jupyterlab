@@ -1,20 +1,9 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
+import { isFulfilled, JupyterServer } from '@jupyterlab/testing';
 import { PromiseDelegate } from '@lumino/coreutils';
-
-import { KernelMessage, Kernel, KernelManager } from '../../src';
-
-import {
-  isFulfilled,
-  JupyterServer,
-  flakyIt as it
-} from '@jupyterlab/testutils';
-
-import { init } from '../utils';
-
-// Initialize fetch override.
-init();
+import { Kernel, KernelManager, KernelMessage } from '../../src';
 
 const BLIP = `
 from ipykernel.comm import Comm
@@ -49,25 +38,19 @@ def target_func(comm, msg):
 get_ipython().kernel.comm_manager.register_target("test", target_func)
 `;
 
-const server = new JupyterServer();
-
-beforeAll(async () => {
-  await server.start();
-});
-
-afterAll(async () => {
-  await server.shutdown();
-});
-
 describe('jupyter.services - Comm', () => {
+  let server: JupyterServer;
   let kernelManager: KernelManager;
   let kernel: Kernel.IKernelConnection;
 
+  jest.retryTimes(3);
+
   beforeAll(async () => {
-    jest.setTimeout(20000);
+    server = new JupyterServer();
+    await server.start();
     kernelManager = new KernelManager();
     kernel = await kernelManager.startNew({ name: 'ipython' });
-  });
+  }, 30000);
 
   afterEach(() => {
     // A no-op comm target.
@@ -78,6 +61,7 @@ describe('jupyter.services - Comm', () => {
 
   afterAll(async () => {
     await kernel.shutdown();
+    await server.shutdown();
   });
 
   describe('Kernel', () => {
@@ -95,7 +79,7 @@ describe('jupyter.services - Comm', () => {
       });
 
       it('should throw an error if there is an existing comm', () => {
-        expect(() => kernel.createComm('test', '1234')).toThrowError();
+        expect(() => kernel.createComm('test', '1234')).toThrow();
       });
 
       it('should throw an error when the kernel does not handle comms', async () => {
@@ -104,7 +88,7 @@ describe('jupyter.services - Comm', () => {
           { handleComms: false }
         );
         expect(kernel2.handleComms).toBe(false);
-        expect(() => kernel2.createComm('test', '1234')).toThrowError();
+        expect(() => kernel2.createComm('test', '1234')).toThrow();
       });
     });
 
@@ -281,7 +265,7 @@ describe('jupyter.services - Comm', () => {
           comm.send('quit');
         });
         await kernel.requestExecute({ code: SEND }, true).done;
-        await promise.promise;
+        await expect(promise.promise).resolves.not.toThrow();
       });
     });
 
@@ -329,7 +313,7 @@ describe('jupyter.services - Comm', () => {
           data,
           data.buffer
         ]);
-        await future2.done;
+        await expect(future2.done).resolves.not.toThrow();
       });
     });
 
@@ -337,13 +321,13 @@ describe('jupyter.services - Comm', () => {
       it('should send a message to the server', async () => {
         await comm.open().done;
         const future = comm.send({ foo: 'bar' }, { fizz: 'buzz' });
-        await future.done;
+        await expect(future.done).resolves.not.toThrow();
       });
 
       it('should pass through a buffers field', async () => {
         await comm.open().done;
         const future = comm.send({ buffers: 'bar' });
-        await future.done;
+        await expect(future.done).resolves.not.toThrow();
       });
     });
 
@@ -353,7 +337,7 @@ describe('jupyter.services - Comm', () => {
         const encoder = new TextEncoder();
         const data = encoder.encode('hello');
         const future = comm.close({ foo: 'bar' }, {}, [data, data.buffer]);
-        await future.done;
+        await expect(future.done).resolves.not.toThrow();
       });
 
       it('should trigger an onClose', async () => {
@@ -373,7 +357,7 @@ describe('jupyter.services - Comm', () => {
         await comm.close({ foo: 'bar' }).done;
         expect(() => {
           comm.send('test');
-        }).toThrowError();
+        }).toThrow();
       });
     });
   });

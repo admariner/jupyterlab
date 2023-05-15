@@ -12,6 +12,9 @@
       "path": "../coreutils"
     },
     {
+      "path": "../rendermime"
+    },
+    {
       "path": "../services"
     },
     {
@@ -24,25 +27,7 @@
       "path": "."
     },
     {
-      "path": "../../testutils"
-    },
-    {
-      "path": "../apputils"
-    },
-    {
-      "path": "../codeeditor"
-    },
-    {
-      "path": "../coreutils"
-    },
-    {
-      "path": "../services"
-    },
-    {
-      "path": "../statedb"
-    },
-    {
-      "path": "../ui-components"
+      "path": "../testing"
     }
   ]
 }

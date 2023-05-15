@@ -6,25 +6,31 @@
  */
 
 import {
-  ILayoutRestorer,
   ILabShell,
+  ILayoutRestorer,
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
 import {
   IRunningSessionManagers,
   RunningSessionManagers,
   RunningSessions
 } from '@jupyterlab/running';
-
 import { ITranslator } from '@jupyterlab/translation';
-
 import { runningIcon } from '@jupyterlab/ui-components';
-
+import { addKernelRunningSessionManager } from './kernels';
 import { addOpenTabsSessionManager } from './opentabs';
 
-import { addKernelRunningSessionManager } from './kernels';
+/**
+ * The command IDs used by the running plugin.
+ */
+export namespace CommandIDs {
+  export const kernelNewConsole = 'running:kernel-new-console';
+  export const kernelNewNotebook = 'running:kernel-new-notebook';
+  export const kernelOpenSession = 'running:kernel-open-session';
+  export const kernelShutDown = 'running:kernel-shut-down';
+  export const showPanel = 'running:show-panel';
+}
 
 /**
  * The default running sessions extension.
@@ -32,6 +38,7 @@ import { addKernelRunningSessionManager } from './kernels';
 const plugin: JupyterFrontEndPlugin<IRunningSessionManagers> = {
   activate,
   id: '@jupyterlab/running-extension:plugin',
+  description: 'Provides the running session managers.',
   provides: IRunningSessionManagers,
   requires: [ITranslator],
   optional: [ILayoutRestorer, ILabShell],
@@ -70,10 +77,17 @@ function activate(
   if (labShell) {
     addOpenTabsSessionManager(runningSessionManagers, translator, labShell);
   }
-  addKernelRunningSessionManager(runningSessionManagers, translator, app);
+  void addKernelRunningSessionManager(runningSessionManagers, translator, app);
   // Rank has been chosen somewhat arbitrarily to give priority to the running
   // sessions widget in the sidebar.
-  app.shell.add(running, 'left', { rank: 200 });
+  app.shell.add(running, 'left', { rank: 200, type: 'Sessions and Tabs' });
+
+  app.commands.addCommand(CommandIDs.showPanel, {
+    label: trans.__('Sessions and Tabs'),
+    execute: () => {
+      app.shell.activateById(running.id);
+    }
+  });
 
   return runningSessionManagers;
 }

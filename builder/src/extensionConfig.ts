@@ -4,12 +4,11 @@
 import * as path from 'path';
 import * as webpack from 'webpack';
 import { Build } from './build';
-import { LicenseWebpackPlugin } from 'license-webpack-plugin';
+import { WPPlugin } from './webpack-plugins';
 import { merge } from 'webpack-merge';
 import * as fs from 'fs-extra';
 import * as glob from 'glob';
 import Ajv from 'ajv';
-import { readJSONFile, writeJSONFile } from '@jupyterlab/buildutils';
 
 const baseConfig = require('./webpack.config.base');
 const { ModuleFederationPlugin } = webpack.container;
@@ -33,7 +32,7 @@ function generateConfig({
 }: IOptions = {}): webpack.Configuration[] {
   const data = require(path.join(packagePath, 'package.json'));
 
-  const ajv = new Ajv({ useDefaults: true });
+  const ajv = new Ajv({ useDefaults: true, strict: false });
   const validate = ajv.compile(require('../metadata_schema.json'));
   let valid = validate(data.jupyterlab ?? {});
   if (!valid) {
@@ -189,7 +188,7 @@ function generateConfig({
         }
 
         // Find the remoteEntry file and add it to the package.json metadata
-        const data = readJSONFile(path.join(outputPath, 'package.json'));
+        const data = fs.readJSONSync(path.join(outputPath, 'package.json'));
         const _build: any = {
           load: path.join('static', newEntry)
         };
@@ -203,7 +202,9 @@ function generateConfig({
           _build.style = './style';
         }
         data.jupyterlab._build = _build;
-        writeJSONFile(path.join(outputPath, 'package.json'), data);
+        fs.writeJSONSync(path.join(outputPath, 'package.json'), data, {
+          spaces: 2
+        });
       });
     }
   }
@@ -237,9 +238,7 @@ function generateConfig({
 
   if (mode === 'production') {
     plugins.push(
-      new LicenseWebpackPlugin({
-        perChunkOutput: false,
-        outputFilename: 'third-party-licenses.txt',
+      new WPPlugin.JSONLicenseWebpackPlugin({
         excludedPackageTest: packageName => packageName === data.name
       })
     );
@@ -250,6 +249,16 @@ function generateConfig({
   let filename = '[name].[contenthash].js';
   if (mode === 'production') {
     filename += '?v=[contenthash]';
+  }
+
+  const rules: any = [{ test: /\.html$/, type: 'asset/resource' }];
+
+  if (mode === 'development') {
+    rules.push({
+      test: /\.js$/,
+      enforce: 'pre',
+      use: ['source-map-loader']
+    });
   }
 
   const config = [
@@ -264,18 +273,27 @@ function generateConfig({
           path: staticPath,
           publicPath: staticUrl || 'auto'
         },
-        module: {
-          rules: [{ test: /\.html$/, use: 'file-loader' }]
-        },
         plugins
       },
-      webpackConfig
+      webpackConfig,
+      {
+        module: {
+          rules
+        }
+      }
     )
   ].concat(extras);
 
   if (mode === 'development') {
     const logPath = path.join(outputPath, 'build_log.json');
-    fs.writeFileSync(logPath, JSON.stringify(config, null, '  '));
+    function regExpReplacer(key: any, value: any) {
+      if (value instanceof RegExp) {
+        return value.toString();
+      } else {
+        return value;
+      }
+    }
+    fs.writeFileSync(logPath, JSON.stringify(config, regExpReplacer, '  '));
   }
   return config;
 }

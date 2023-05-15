@@ -1,3 +1,6 @@
+.. Copyright (c) Jupyter Development Team.
+.. Distributed under the terms of the Modified BSD License.
+
 Notebook
 ========
 
@@ -111,7 +114,7 @@ corresponding to the cell models in its cell list.
 -  Each cell widget contains an
    `InputArea <../api/classes/cells.inputarea-1.html>`__,
 
-   -  which contains n
+   -  which contains a
       `CodeEditorWrapper <../api/classes/codeeditor.codeeditorwrapper-1.html>`__,
 
       -  which contains a JavaScript CodeMirror instance.
@@ -125,6 +128,37 @@ An OutputArea is responsible for rendering the outputs in the
 list. An OutputArea uses a notebook-specific
 `RenderMimeRegistry <../api/classes/rendermime.rendermimeregistry-1.html>`__
 object to render ``display_data`` output messages.
+
+The Notebook widget is represented in the DOM with a ``<div>`` element
+with CSS classes ``jp-Notebook`` and ``jp-NotebookPanel-notebook``.
+It contains a sequence of cells widgets.
+
+ - Code cells have the following DOM structure:
+
+   .. image:: images/code-cell-dom.svg
+
+ - Rendered markdown cells have the following DOM structure:
+
+   .. image:: images/rendered-markdown-cell-dom.svg
+
+ - Active markdown cells have the following DOM structure:
+
+   .. image:: images/active-markdown-cell-dom.svg
+
+.. note::
+   The default nbconvert template for the HTML exporter produces the same DOM
+   as the JupyterLab notebook, allowing for the JupyterLab CSS to be used directly.
+   In JupyterLab, input areas are rendered with the CodeMirror, with a custom theme
+   making use of the CSS variables of JupyterLab.
+   In the case of nbconvert, code cells are rendered using the Pygments Python
+   library, which produces static HTML with syntax highlighting. The
+   `jupyterlab_pygments <https://github.com/jupyterlab/jupyterlab_pygments.git>`_
+   Pygments theme mimicks the default CodeMirror theme of JupyterLab.
+
+.. note::
+   The SVG figures presenting the DOM structures of the different cell types
+   were produced with Draw.io, and contain the metadata allowing them to be
+   directly opened and edited with Draw.io.
 
 Rendering output messages
 """""""""""""""""""""""""
@@ -147,128 +181,150 @@ How to extend the Notebook plugin
 We'll walk through two notebook extensions:
 
 -  adding a button to the toolbar
+-  adding a widget to the notebook header
 -  adding an ipywidgets extension
 
 Adding a button to the toolbar
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Start from the cookie cutter extension template.
+Since JupyterLab 3.2, adding toolbar item can be done using a :ref:`toolbar-registry` and settings. In particular
+for the notebook, if the button is linked to a new command, you can add a button in the toolbar using the
+following JSON snippet in your extension settings file:
 
-::
+.. code:: js
 
-    pip install cookiecutter
-    cookiecutter https://github.com/jupyterlab/extension-cookiecutter-ts
-    cd my_cookie_cutter_name
+   "jupyter.lab.toolbars": {
+     "Notebook": [ // Widget factory name for which you want to add a toolbar item.
+       // Item with default button widget triggering a command
+       { "name": "run", "command": "runmenu:run" }
+     ]
+   }
+
+You may add a ``rank`` attribute to modify the item position (the default value is 50).
+
+Adding a widget to the notebook header
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Start from the extension template.
+
+.. code-block:: shell
+
+    pip install copier jinja2-time
+    mkdir myextension
+    cd myextension
+    copier https://github.com/jupyterlab/extension-template .
 
 Install the dependencies. Note that extensions are built against the
 released npm packages, not the development versions.
 
-::
+.. code-block:: shell
 
-    npm install --save @jupyterlab/notebook @jupyterlab/application @jupyterlab/apputils @jupyterlab/docregistry @lumino/disposable --legacy-peer-deps
+    jlpm add -D @jupyterlab/notebook @jupyterlab/application @jupyterlab/ui-components @jupyterlab/docregistry @lumino/disposable @lumino/widgets
 
 Copy the following to ``src/index.ts``:
 
 .. code:: typescript
 
-    import {
-      IDisposable, DisposableDelegate
-    } from '@lumino/disposable';
+    import { IDisposable, DisposableDelegate } from '@lumino/disposable';
+
+    import { Widget } from '@lumino/widgets';
 
     import {
-      JupyterFrontEnd, JupyterFrontEndPlugin
+      JupyterFrontEnd,
+      JupyterFrontEndPlugin
     } from '@jupyterlab/application';
 
-    import {
-      ToolbarButton
-    } from '@jupyterlab/apputils';
+    import { DocumentRegistry } from '@jupyterlab/docregistry';
 
-    import {
-      DocumentRegistry
-    } from '@jupyterlab/docregistry';
-
-    import {
-      NotebookActions, NotebookPanel, INotebookModel
-    } from '@jupyterlab/notebook';
-
+    import { NotebookPanel, INotebookModel } from '@jupyterlab/notebook';
 
     /**
-     * The plugin registration information.
-     */
+    * The plugin registration information.
+    */
     const plugin: JupyterFrontEndPlugin<void> = {
       activate,
-      id: 'my-extension-name:buttonPlugin',
+      id: 'my-extension-name:widgetPlugin',
+      description: 'Add a widget to the notebook header.',
       autoStart: true
     };
 
-
     /**
-     * A notebook widget extension that adds a button to the toolbar.
-     */
-    export
-    class ButtonExtension implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel> {
+    * A notebook widget extension that adds a widget in the notebook header (widget below the toolbar).
+    */
+    export class WidgetExtension
+      implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel>
+    {
       /**
-       * Create a new extension object.
-       */
-      createNew(panel: NotebookPanel, context: DocumentRegistry.IContext<INotebookModel>): IDisposable {
-        let callback = () => {
-          NotebookActions.runAll(panel.content, context.sessionContext);
-        };
-        let button = new ToolbarButton({
-          className: 'myButton',
-          iconClass: 'fa fa-fast-forward',
-          onClick: callback,
-          tooltip: 'Run All'
-        });
+      * Create a new extension object.
+      */
+      createNew(
+        panel: NotebookPanel,
+        context: DocumentRegistry.IContext<INotebookModel>
+      ): IDisposable {
+        const widget = new Widget({ node: Private.createNode() });
+        widget.addClass('jp-myextension-myheader');
 
-        panel.toolbar.insertItem(0, 'runAll', button);
+        panel.contentHeader.insertWidget(0, widget);
         return new DisposableDelegate(() => {
-          button.dispose();
+          widget.dispose();
         });
       }
     }
 
     /**
-     * Activate the extension.
-     */
-    function activate(app: JupyterFrontEnd) {
-      app.docRegistry.addWidgetExtension('Notebook', new ButtonExtension());
-    };
-
+    * Activate the extension.
+    */
+    function activate(app: JupyterFrontEnd): void {
+      app.docRegistry.addWidgetExtension('Notebook', new WidgetExtension());
+    }
 
     /**
-     * Export the plugin as default.
-     */
+    * Export the plugin as default.
+    */
     export default plugin;
+
+    /**
+    * Private helpers
+    */
+    namespace Private {
+      /**
+      * Generate the widget node
+      */
+      export function createNode(): HTMLElement {
+        const span = document.createElement('span');
+        span.textContent = 'My custom header';
+        return span;
+      }
+    }
 
 
 And the following to ``style/base.css``:
 
-.. code:: css
+.. code-block:: css
 
-  .myButton.jp-Button.minimal .jp-Icon {
-      color: black;
-  }
+    .jp-myextension-myheader {
+        min-height: 20px;
+        background-color: lightsalmon;
+    }
 
 
 Run the following commands:
 
-::
+.. code-block:: shell
 
     pip install -e .
-    pip install jupyter_packaging
     jupyter labextension develop . --overwrite
     jupyter lab
 
-Open a notebook and observe the new "Run All" button.
+Open a notebook and observe the new "Header" widget.
 
-The *ipywidgets* third party extension
+The *ipywidgets* third party-extension
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This discussion will be a bit confusing since we've been using the term
 *widget* to refer to *lumino widgets*. In the discussion below,
-*ipython widgets* will be referred to as *ipywidgets*. There is no
-intrinsic relation between *lumino widgets* and *ipython widgets*.
+*Jupyter interactive widgets* will be referred to as *ipywidgets*. There is no
+intrinsic relation between *lumino widgets* and *Jupyter interactive widgets*.
 
 The *ipywidgets* extension registers a factory for a notebook *widget*
 extension using the `Document

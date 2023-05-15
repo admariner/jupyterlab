@@ -2,25 +2,13 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { ArrayExt } from '@lumino/algorithm';
-
 import {
   DisposableDelegate,
   DisposableSet,
   IDisposable
 } from '@lumino/disposable';
-
 import { Message } from '@lumino/messaging';
-
-import { Widget, Panel, PanelLayout } from '@lumino/widgets';
-
-import {
-  statusBar as barStyle,
-  side as sideStyle,
-  item as itemStyle,
-  leftSide as leftSideStyle,
-  rightSide as rightSideStyle
-} from './style/statusbar';
-
+import { Panel, PanelLayout, Widget } from '@lumino/widgets';
 import { IStatusBar } from './tokens';
 
 /**
@@ -29,7 +17,7 @@ import { IStatusBar } from './tokens';
 export class StatusBar extends Widget implements IStatusBar {
   constructor() {
     super();
-    this.addClass(barStyle);
+    this.addClass('jp-StatusBar-Widget');
 
     const rootLayout = (this.layout = new PanelLayout());
 
@@ -37,13 +25,9 @@ export class StatusBar extends Widget implements IStatusBar {
     const middlePanel = (this._middlePanel = new Panel());
     const rightPanel = (this._rightSide = new Panel());
 
-    leftPanel.addClass(sideStyle);
-    leftPanel.addClass(leftSideStyle);
-
-    middlePanel.addClass(sideStyle);
-
-    rightPanel.addClass(sideStyle);
-    rightPanel.addClass(rightSideStyle);
+    leftPanel.addClass('jp-StatusBar-Left');
+    middlePanel.addClass('jp-StatusBar-Middle');
+    rightPanel.addClass('jp-StatusBar-Right');
 
     rootLayout.addWidget(leftPanel);
     rootLayout.addWidget(middlePanel);
@@ -80,7 +64,7 @@ export class StatusBar extends Widget implements IStatusBar {
 
     const rankItem = { id, rank };
 
-    fullStatusItem.item.addClass(itemStyle);
+    fullStatusItem.item.addClass('jp-StatusBar-Item');
     this._statusItems[id] = fullStatusItem;
 
     if (align === 'left') {
@@ -121,7 +105,7 @@ export class StatusBar extends Widget implements IStatusBar {
   /**
    * Dispose of the status bar.
    */
-  dispose() {
+  dispose(): void {
     this._leftRankItems.length = 0;
     this._rightRankItems.length = 0;
     this._disposables.dispose();
@@ -131,7 +115,7 @@ export class StatusBar extends Widget implements IStatusBar {
   /**
    * Handle an 'update-request' message to the status bar.
    */
-  protected onUpdateRequest(msg: Message) {
+  protected onUpdateRequest(msg: Message): void {
     this._refreshAll();
     super.onUpdateRequest(msg);
   }

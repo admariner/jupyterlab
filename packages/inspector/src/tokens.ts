@@ -2,19 +2,17 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { Token } from '@lumino/coreutils';
-
 import { ISignal } from '@lumino/signaling';
-
 import { Widget } from '@lumino/widgets';
 
-/* tslint:disable */
 /**
  * The inspector panel token.
  */
 export const IInspector = new Token<IInspector>(
-  '@jupyterlab/inspector:IInspector'
+  '@jupyterlab/inspector:IInspector',
+  `A service for adding contextual help to widgets (visible using "Show Contextual Help" from the Help menu).
+  Use this to hook into the contextual help system in your extension.`
 );
-/* tslint:enable */
 
 /**
  * An interface for an inspector.
@@ -62,6 +60,13 @@ export namespace IInspector {
      * inspector is visible. It can be modified by the consumer of the source.
      */
     standby: boolean;
+    /**
+     * Handle a text changed signal from an editor.
+     *
+     * #### Notes
+     * Update the hints inspector based on a text change.
+     */
+    onEditorChange(customText?: string): void;
   }
 
   /**

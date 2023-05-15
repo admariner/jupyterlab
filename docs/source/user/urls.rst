@@ -1,3 +1,6 @@
+.. Copyright (c) Jupyter Development Team.
+.. Distributed under the terms of the Modified BSD License.
+
 .. _urls:
 
 JupyterLab URLs
@@ -21,9 +24,6 @@ the nomenclature of the classic notebook; these URLs are ``/tree`` URLs:
 
   http(s)://<server:port>/<lab-location>/lab/tree/path/to/notebook.ipynb
 
-Entering this URL will open the notebook in JupyterLab in
-:ref:`single-document mode <tabs>`.
-
 By default, the file browser will navigate to the directory containing the requested
 file. This behavior can be changed with the optional ``file-browser-path`` query parameter:
 
@@ -34,6 +34,41 @@ file. This behavior can be changed with the optional ``file-browser-path`` query
 Entering the above URL will show the workspace root directory instead of the ``/path/to/``
 directory in the file browser.
 
+
+Linking Notebook Sections
+-------------------------
+
+To create an URL which will scroll to a specific heading in the notebook append
+a hash (``#``) followed by the heading text with spaces replaced by minus
+characters (``-``), for example:
+
+.. code-block:: none
+
+  /lab/tree/path/to/notebook.ipynb?#my-heading
+
+To get a link for a specific heading, hover over it in a rendered markdown cell
+until you see a pilcrow mark (``¶``) which will contain the desired anchor link:
+
+.. image:: ../images/notebook-heading-anchor-link.png
+   :alt: A markdown cell with pilcrow mark (¶) which serves as an anchor link and is placed after a heading
+   :class: jp-screenshot
+
+
+.. note::
+
+    Currently disambiguation of headings with identical text is not supported.
+
+JupyterLab experimentally supports scrolling to a specified cell by identifier
+using ``#cell-id=<cell-id>`` Fragment Identification Syntax.
+
+.. code-block:: none
+
+  /lab/tree/path/to/notebook.ipynb?#cell-id=my-cell-id
+
+.. note::
+
+    The ``cell-id`` fragment locator is not part of a formal Jupyter standard and subject to change.
+    To leave feedback, please comment in the discussion: `nbformat#317 <https://github.com/jupyter/nbformat/issues/317>`_.
 
 .. _url-workspaces-ui:
 
@@ -62,8 +97,7 @@ multiple users (or browsers) as long as they have access to the same server.
 
 A workspace should only be open in a single browser tab at a time. If JupyterLab
 detects that a workspace is being opened multiple times simultaneously, it will
-prompt for a new workspace name. Opening a document in two different browser
-tabs simultaneously is also not supported.
+prompt for a new workspace name.
 
 .. _url-clone:
 
@@ -182,14 +216,14 @@ The `metadata` must be a mapping with an `id`
 key that has the same value as the ID of the workspace. This should also be the relative URL path to access the workspace,
 like `/lab/workspaces/foo`.
 
-The `data` key maps to the initial state of the `IStateDB`. Many plugins look in the State DB for the configuration. 
+The `data` key maps to the initial state of the `IStateDB`. Many plugins look in the State DB for the configuration.
 Also any plugins that register with the `ILayoutRestorer` will look up all keys in the State DB
 that start with the `namespace` of their tracker before the first `:`. The values of these keys should have a `data`
 attribute that maps.
 
 For example, if your workspace looks like this:
 
-.. code-block:: bash
+.. code-block:: json
 
   {
     "data": {
@@ -199,7 +233,7 @@ For example, if your workspace looks like this:
     }
   }
 
-It will run the `docmanager:open` with the `{ "path": "package.json", "factory": "JSON" }` args, because the `application-mimedocuments` tracker is registerd with the `docmanager:open` command, like this:
+It will run the `docmanager:open` with the `{ "path": "package.json", "factory": "JSON" }` args, because the `application-mimedocuments` tracker is registered with the `docmanager:open` command, like this:
 
 
 .. code-block:: typescript
@@ -216,4 +250,4 @@ It will run the `docmanager:open` with the `{ "path": "package.json", "factory":
       `${widget.context.path}:${Private.factoryNameProperty.get(widget)}`
   });
 
-Not that the part of the data key after the first `:`, `package.json:JSON` is dropped and is irrelevent.
+Note the part of the data key after the first `:` (`package.json:JSON`) is dropped and is irrelevant.

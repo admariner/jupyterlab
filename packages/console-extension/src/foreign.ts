@@ -5,29 +5,24 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
 import { ICommandPalette } from '@jupyterlab/apputils';
-
 import {
   CodeConsole,
   ConsolePanel,
-  IConsoleTracker,
-  ForeignHandler
+  ForeignHandler,
+  IConsoleTracker
 } from '@jupyterlab/console';
-
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-
 import { ITranslator } from '@jupyterlab/translation';
-
+import { ReadonlyPartialJSONObject } from '@lumino/coreutils';
 import { AttachedProperty } from '@lumino/properties';
 
-import { ReadonlyPartialJSONObject } from '@lumino/coreutils';
-
 /**
- * The console widget tracker provider.
+ * The console foreign handler.
  */
 export const foreign: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/console-extension:foreign',
+  description: 'Add foreign handler of IOPub messages to the console.',
   requires: [IConsoleTracker, ISettingRegistry, ITranslator],
   optional: [ICommandPalette],
   activate: activateForeign,
@@ -42,7 +37,7 @@ function activateForeign(
   settingRegistry: ISettingRegistry,
   translator: ITranslator,
   palette: ICommandPalette | null
-) {
+): void {
   const trans = translator.load('jupyterlab');
   const { shell } = app;
   tracker.widgetAdded.connect((sender, widget) => {
@@ -109,11 +104,6 @@ function activateForeign(
       args: { isPalette: true }
     });
   }
-
-  app.contextMenu.addItem({
-    command: toggleShowAllActivity,
-    selector: '.jp-CodeConsole'
-  });
 }
 
 /*
